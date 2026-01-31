@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, Link, useLocation, useSearchParams } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import ServiceAreas from './components/ServiceAreas';
@@ -8,21 +9,32 @@ import About from './components/About';
 import FAQ from './components/FAQ';
 import Contact from './components/Contact';
 import BookingSuccess from './components/BookingSuccess';
+import CityLanding from './components/CityLanding';
 
-function App() {
+// Service area cities for footer
+const serviceAreas = [
+  { name: 'St. Charles', slug: 'st-charles' },
+  { name: 'Geneva', slug: 'geneva' },
+  { name: 'Batavia', slug: 'batavia' },
+  { name: 'Wayne', slug: 'wayne' },
+  { name: 'Campton Hills', slug: 'campton-hills' },
+  { name: 'Elburn', slug: 'elburn' },
+];
+
+// Home page component
+function HomePage() {
+  const [searchParams] = useSearchParams();
   const [showBookingSuccess, setShowBookingSuccess] = useState(false);
 
   // Check URL for booking status on load
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const bookingStatus = params.get('booking');
-    
+    const bookingStatus = searchParams.get('booking');
     if (bookingStatus === 'success') {
       setShowBookingSuccess(true);
       // Clean up URL without reload
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []);
+  }, [searchParams]);
 
   const handleCloseSuccess = () => {
     setShowBookingSuccess(false);
@@ -54,7 +66,7 @@ function App() {
       {/* Footer */}
       <footer className="bg-charcoal py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-3 gap-8 mb-8">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
             {/* Brand */}
             <div>
               <h3 className="font-playfair text-xl font-semibold text-bone mb-3">
@@ -91,6 +103,23 @@ function App() {
                 </li>
               </ul>
             </div>
+
+            {/* Service Areas - SEO Internal Links */}
+            <div>
+              <h4 className="font-inter font-semibold text-bone mb-3">Service Areas</h4>
+              <ul className="space-y-2">
+                {serviceAreas.map((area) => (
+                  <li key={area.slug}>
+                    <Link 
+                      to={`/${area.slug}`}
+                      className="text-bone/60 hover:text-bone font-inter text-sm transition-colors"
+                    >
+                      {area.name}, IL
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
             
             {/* Contact */}
             <div>
@@ -106,9 +135,6 @@ function App() {
                     hello@willowandwater.com
                   </a>
                 </li>
-                <li className="pt-2">
-                  Serving: St. Charles, Geneva, Batavia, Wayne, Campton Hills & Elburn
-                </li>
               </ul>
             </div>
           </div>
@@ -121,6 +147,29 @@ function App() {
         </div>
       </footer>
     </div>
+  );
+}
+
+function App() {
+  const location = useLocation();
+
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/st-charles" element={<CityLanding citySlug="st-charles" />} />
+      <Route path="/geneva" element={<CityLanding citySlug="geneva" />} />
+      <Route path="/batavia" element={<CityLanding citySlug="batavia" />} />
+      <Route path="/wayne" element={<CityLanding citySlug="wayne" />} />
+      <Route path="/campton-hills" element={<CityLanding citySlug="campton-hills" />} />
+      <Route path="/elburn" element={<CityLanding citySlug="elburn" />} />
+      {/* Fallback to home for unknown routes */}
+      <Route path="*" element={<HomePage />} />
+    </Routes>
   );
 }
 

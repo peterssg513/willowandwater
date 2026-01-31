@@ -1,0 +1,11 @@
+# Willow & Water Organic Cleaning
+# https://willowandwater.vercel.app
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://willowandwater.vercel.app/sitemap.xml
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1

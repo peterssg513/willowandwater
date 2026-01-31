@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, HelpCircle, Home, Leaf, Dog, DollarSign, Phone, Clock, CreditCard, Calendar } from 'lucide-react';
 
 const faqs = [
@@ -50,6 +50,42 @@ const FAQ = () => {
   const toggleFAQ = (index) => {
     setOpenIndex(openIndex === index ? null : index);
   };
+
+  // Inject FAQ Schema markup for SEO
+  useEffect(() => {
+    const faqSchema = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": faqs.map(faq => ({
+        "@type": "Question",
+        "name": faq.question,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": faq.answer
+        }
+      }))
+    };
+
+    // Check if script already exists
+    const existingScript = document.querySelector('script[data-faq-schema]');
+    if (existingScript) {
+      existingScript.remove();
+    }
+
+    // Add schema script to head
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.setAttribute('data-faq-schema', 'true');
+    script.textContent = JSON.stringify(faqSchema);
+    document.head.appendChild(script);
+
+    return () => {
+      const scriptToRemove = document.querySelector('script[data-faq-schema]');
+      if (scriptToRemove) {
+        scriptToRemove.remove();
+      }
+    };
+  }, []);
 
   return (
     <section id="faq" className="py-20 bg-bone">
