@@ -45,7 +45,7 @@ serve(async (req) => {
         
         if (customerEmail) {
           // Update the most recent booking for this customer
-          const { error: updateError } = await supabase
+          const { data: updatedBookings, error: updateError } = await supabase
             .from('bookings')
             .update({
               status: 'confirmed',
@@ -57,12 +57,38 @@ serve(async (req) => {
             .eq('email', customerEmail.toLowerCase())
             .in('status', ['lead', 'payment_initiated'])
             .order('created_at', { ascending: false })
-            .limit(1);
+            .limit(1)
+            .select();
 
           if (updateError) {
             console.error('Failed to update booking:', updateError);
           } else {
             console.log(`Booking confirmed for ${customerEmail}`);
+            
+            // Automatically assign a cleaner to this booking
+            if (updatedBookings && updatedBookings.length > 0) {
+              const bookingId = updatedBookings[0].id;
+              
+              try {
+                const assignResponse = await fetch(
+                  `${supabaseUrl}/functions/v1/assign-cleaner`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${supabaseServiceKey}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ bookingId }),
+                  }
+                );
+                
+                const assignResult = await assignResponse.json();
+                console.log('Cleaner assignment result:', assignResult);
+              } catch (assignError) {
+                console.error('Failed to assign cleaner:', assignError);
+                // Don't fail the webhook - booking is still confirmed
+              }
+            }
           }
         }
         break;
