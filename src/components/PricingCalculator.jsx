@@ -1,7 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Leaf, Minus, Plus, Shield, Calendar } from 'lucide-react';
 import { calculateCleaningPrice, formatPrice } from '../utils/pricingLogic';
 import BookingFlow from './BookingFlow';
+import { saveBookingProgress } from './AbandonedBookingRecovery';
+import { trackConversion } from './Analytics';
 
 const PricingCalculator = () => {
   // Form state (defaults to common Fox Valley home size)
@@ -26,6 +28,21 @@ const PricingCalculator = () => {
     frequency,
     recurringPrice: pricing.recurringPrice,
     firstCleanPrice: pricing.firstCleanPrice,
+  };
+
+  // Save quote for abandoned booking recovery when user interacts
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveBookingProgress(quoteData);
+    }, 2000); // Save after 2 seconds of viewing
+    
+    return () => clearTimeout(timer);
+  }, [sqft, bedrooms, bathrooms, frequency, pricing]);
+
+  // Track when user opens booking flow
+  const handleOpenBooking = () => {
+    trackConversion.bookingStarted(quoteData);
+    setIsBookingOpen(true);
   };
 
   // Frequency options
@@ -233,7 +250,7 @@ const PricingCalculator = () => {
             {/* CTA Button */}
             <div className="text-center">
               <button
-                onClick={() => setIsBookingOpen(true)}
+                onClick={handleOpenBooking}
                 className="inline-flex items-center justify-center gap-2 btn-primary text-lg px-8 py-4"
               >
                 <Calendar className="w-5 h-5" aria-hidden="true" />

@@ -3,13 +3,18 @@ import { Routes, Route, Link, useLocation, useSearchParams } from 'react-router-
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import ServiceAreas from './components/ServiceAreas';
+import TrustBadges from './components/TrustBadges';
 import PricingCalculator from './components/PricingCalculator';
 import Services from './components/Services';
 import About from './components/About';
 import FAQ from './components/FAQ';
 import Contact from './components/Contact';
+import ReferralProgram from './components/ReferralProgram';
 import BookingSuccess from './components/BookingSuccess';
 import CityLanding from './components/CityLanding';
+import StickyMobileCTA from './components/StickyMobileCTA';
+import ExitIntentPopup from './components/ExitIntentPopup';
+import AbandonedBookingRecovery from './components/AbandonedBookingRecovery';
 
 // Service area cities for footer
 const serviceAreas = [
@@ -55,13 +60,20 @@ function HomePage() {
       <Navbar />
       <main>
         <Hero />
+        <TrustBadges />
         <ServiceAreas />
         <PricingCalculator />
         <Services />
         <About />
+        <ReferralProgram />
         <FAQ />
         <Contact />
       </main>
+      
+      {/* Conversion Optimization Components */}
+      <StickyMobileCTA />
+      <ExitIntentPopup />
+      <AbandonedBookingRecovery />
 
       {/* Footer */}
       <footer className="bg-charcoal py-12">
