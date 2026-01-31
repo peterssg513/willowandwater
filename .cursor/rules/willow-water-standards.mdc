@@ -1,0 +1,50 @@
+---
+description: Willow & Water Organic Cleaning project standards - tech stack, design system, and coding conventions
+alwaysApply: true
+---
+
+# Willow & Water Project Standards
+
+## Tech Stack
+
+- **Framework**: React with Vite
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide Icons
+
+## Design System
+
+### Aesthetic
+"Organic High-End" — clean, natural, sophisticated
+
+### Color Palette
+
+| Name     | Hex       | Usage                        |
+|----------|-----------|------------------------------|
+| Sage     | `#71797E` | Primary accent, buttons      |
+| Bone     | `#F9F6EE` | Backgrounds, light surfaces  |
+| Charcoal | `#36454F` | Text, dark elements          |
+
+### Typography
+
+- **Headings**: Playfair Display (serif)
+- **Body**: Inter (sans-serif)
+
+```jsx
+// Example heading
+<h1 className="font-playfair text-charcoal">...</h1>
+
+// Example body text
+<p className="font-inter text-charcoal">...</p>
+```
+
+## SEO Requirements
+
+- Use semantic HTML tags: `<header>`, `<main>`, `<section>`, `<nav>`, `<footer>`
+- Every `<img>` must have descriptive `alt` text
+- Use proper heading hierarchy (h1 → h2 → h3)
+
+## Code Organization
+
+- Keep components **under 200 lines**
+- Separate business logic from UI presentation
+- Extract reusable logic into custom hooks
