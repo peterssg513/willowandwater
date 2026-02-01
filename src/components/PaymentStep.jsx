@@ -71,7 +71,18 @@ const PaymentStep = ({ bookingData, onBack, onComplete }) => {
       });
 
       if (fnError) {
+        console.error('Edge function error:', fnError);
+        // Check if it's a configuration issue
+        if (fnError.message?.includes('non-2xx') || fnError.message?.includes('Edge Function')) {
+          throw new Error('Payment system is being configured. Please call us at (630) 267-0096 to complete your booking.');
+        }
         throw new Error(fnError.message || 'Failed to create checkout session');
+      }
+
+      // Also check if data contains an error
+      if (data?.error) {
+        console.error('Checkout error:', data.error);
+        throw new Error(data.error);
       }
 
       if (data?.url) {
