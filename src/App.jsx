@@ -28,6 +28,7 @@ import Cleaners from './admin/Cleaners';
 import Inventory from './admin/Inventory';
 import Communications from './admin/Communications';
 import Payments from './admin/Payments';
+import Settings from './admin/Settings';
 
 // Service area data
 import { SERVICE_AREA_LIST, getPrimaryServiceAreas, getServiceAreasByTier } from './data/serviceAreas';
@@ -228,6 +229,7 @@ function App() {
         <Route path="inventory" element={<Inventory />} />
         <Route path="communications" element={<Communications />} />
         <Route path="payments" element={<Payments />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
       
       {/* Fallback to home for unknown routes */}
