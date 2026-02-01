@@ -6,7 +6,6 @@ import {
   Mail,
   Phone,
   MapPin,
-  Calendar,
   Clock,
   Edit2,
   Trash2,
@@ -455,35 +454,15 @@ const Cleaners = () => {
               </a>
             </div>
 
-            {/* Service Areas */}
-            <div className="mb-4">
-              <p className="text-xs text-charcoal/50 mb-1">Service Areas</p>
-              <div className="flex flex-wrap gap-1">
-                {cleaner.service_areas?.length > 0 ? (
-                  cleaner.service_areas.map(area => (
-                    <span key={area} className="text-xs bg-sage/10 text-sage px-2 py-0.5 rounded">
-                      {area}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-charcoal/40">No areas assigned</span>
-                )}
-              </div>
-            </div>
-
             {/* Stats */}
-            <div className="flex items-center gap-4 pt-4 border-t border-charcoal/10">
-              <div className="flex items-center gap-1 text-sm text-charcoal/60">
-                <Calendar className="w-4 h-4" />
-                {cleaner.jobsCount} jobs
-              </div>
-              {cleaner.avgRating && (
+            {cleaner.avgRating && (
+              <div className="flex items-center gap-4 pt-4 border-t border-charcoal/10">
                 <div className="flex items-center gap-1 text-sm text-charcoal/60">
                   <Star className="w-4 h-4 text-yellow-500" />
                   {cleaner.avgRating}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Upcoming PTO */}
             {cleaner.upcomingPTO?.length > 0 && (
