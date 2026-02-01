@@ -12,7 +12,9 @@ import {
   X,
   Check,
   ShoppingCart,
-  ExternalLink
+  ExternalLink,
+  Truck,
+  ClipboardList
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -24,6 +26,9 @@ const Inventory = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [showReorderModal, setShowReorderModal] = useState(false);
+  const [reorderItem, setReorderItem] = useState(null);
+  const [showReorderList, setShowReorderList] = useState(false);
 
   useEffect(() => {
     fetchInventory();
@@ -131,6 +136,43 @@ const Inventory = () => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
   };
 
+  // Items that need reordering
+  const itemsToReorder = items.filter(i => i.status === 'low_stock' || i.status === 'out_of_stock');
+
+  // Open reorder modal for a single item
+  const openReorder = (item, e) => {
+    if (e) e.stopPropagation();
+    setReorderItem(item);
+    setShowReorderModal(true);
+  };
+
+  // Mark item as reordered (update last_restock_at and add restock quantity)
+  const markAsReordered = async (itemId, quantityOrdered) => {
+    try {
+      const { error } = await supabase
+        .from('inventory')
+        .update({ 
+          last_restock_at: new Date().toISOString(),
+          notes: `Reordered ${quantityOrdered} units on ${new Date().toLocaleDateString()}`
+        })
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      // Log transaction
+      await supabase.from('inventory_transactions').insert({
+        inventory_id: itemId,
+        type: 'restock',
+        quantity: quantityOrdered,
+        notes: `Reorder placed for ${quantityOrdered} units`
+      });
+
+      fetchInventory();
+    } catch (error) {
+      console.error('Error marking as reordered:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -152,6 +194,15 @@ const Inventory = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {itemsToReorder.length > 0 && (
+            <button 
+              onClick={() => setShowReorderList(true)} 
+              className="btn-secondary flex items-center gap-2 text-yellow-700 border-yellow-300 hover:bg-yellow-50"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Reorder ({itemsToReorder.length})
+            </button>
+          )}
           <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2">
             <Plus className="w-4 h-4" />
             Add Item
@@ -250,6 +301,15 @@ const Inventory = () => {
                     <p className="text-xs text-charcoal/50">{item.unit}</p>
                   </div>
                   <div className="flex items-center gap-1">
+                    {(item.status === 'low_stock' || item.status === 'out_of_stock') && (
+                      <button
+                        onClick={(e) => openReorder(item, e)}
+                        className="p-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded-lg"
+                        title="Reorder"
+                      >
+                        <Truck className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={(e) => { e.stopPropagation(); adjustQuantity(item.id, -1, 'used'); }}
                       className="p-2 text-charcoal/50 hover:text-red-600 hover:bg-red-50 rounded-lg"
@@ -378,6 +438,15 @@ const Inventory = () => {
                 Delete
               </button>
               <div className="flex-1" />
+              {(selectedItem.status === 'low_stock' || selectedItem.status === 'out_of_stock') && (
+                <button 
+                  onClick={() => { setSelectedItem(null); openReorder(selectedItem); }}
+                  className="btn-secondary flex items-center gap-2 text-yellow-700"
+                >
+                  <Truck className="w-4 h-4" />
+                  Reorder
+                </button>
+              )}
               <button onClick={() => setSelectedItem(null)} className="btn-secondary">
                 Close
               </button>
@@ -394,6 +463,29 @@ const Inventory = () => {
             setItems(prev => [...prev, newItem]);
             setShowAddModal(false);
           }}
+        />
+      )}
+
+      {/* Reorder Modal - Single Item */}
+      {showReorderModal && reorderItem && (
+        <ReorderModal
+          item={reorderItem}
+          onClose={() => { setShowReorderModal(false); setReorderItem(null); }}
+          onReorder={(qty) => {
+            markAsReordered(reorderItem.id, qty);
+            setShowReorderModal(false);
+            setReorderItem(null);
+          }}
+        />
+      )}
+
+      {/* Reorder List Modal - All Low Stock Items */}
+      {showReorderList && (
+        <ReorderListModal
+          items={itemsToReorder}
+          onClose={() => setShowReorderList(false)}
+          onReorder={(itemId, qty) => markAsReordered(itemId, qty)}
+          formatPrice={formatPrice}
         />
       )}
     </div>
@@ -555,6 +647,206 @@ const AddItemModal = ({ onClose, onAdd }) => {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+};
+
+// Reorder Modal - Single Item
+const ReorderModal = ({ item, onClose, onReorder }) => {
+  const [quantity, setQuantity] = useState(item.min_quantity * 2 || 10);
+
+  const handleReorder = () => {
+    // Open supplier URL if available
+    if (item.supplier_url) {
+      window.open(item.supplier_url, '_blank');
+    }
+    onReorder(quantity);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-charcoal/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="p-6 border-b border-charcoal/10">
+          <h2 className="font-playfair text-xl font-semibold text-charcoal">Reorder Item</h2>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="bg-yellow-50 rounded-xl p-4">
+            <h3 className="font-inter font-semibold text-charcoal">{item.name}</h3>
+            <p className="text-sm text-charcoal/60 mt-1">
+              Current: <span className="font-semibold text-red-600">{item.quantity}</span> {item.unit} 
+              <span className="mx-2">•</span>
+              Min: {item.min_quantity} {item.unit}
+            </p>
+            {item.supplier && (
+              <p className="text-sm text-charcoal/60 mt-1">Supplier: {item.supplier}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-charcoal mb-1.5">Quantity to Order</label>
+            <input
+              type="number"
+              min="1"
+              value={quantity}
+              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+              className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                         focus:outline-none focus:ring-2 focus:ring-sage text-lg font-semibold"
+            />
+            {item.cost_per_unit && (
+              <p className="text-sm text-charcoal/50 mt-2">
+                Estimated cost: ${(quantity * item.cost_per_unit).toFixed(2)}
+              </p>
+            )}
+          </div>
+
+          {!item.supplier_url && (
+            <div className="bg-sage/10 rounded-xl p-4">
+              <p className="text-sm text-charcoal/70">
+                <strong>Tip:</strong> Add a supplier URL to this item and clicking "Reorder Now" will open the order page automatically.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t border-charcoal/10 flex gap-3">
+          <button onClick={onClose} className="btn-secondary flex-1">
+            Cancel
+          </button>
+          <button onClick={handleReorder} className="btn-primary flex-1 flex items-center justify-center gap-2">
+            <Truck className="w-4 h-4" />
+            {item.supplier_url ? 'Reorder Now' : 'Mark as Ordered'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Reorder List Modal - All Low Stock Items
+const ReorderListModal = ({ items, onClose, onReorder, formatPrice }) => {
+  const [reorderQuantities, setReorderQuantities] = useState(
+    items.reduce((acc, item) => {
+      acc[item.id] = item.min_quantity * 2 || 10;
+      return acc;
+    }, {})
+  );
+  const [orderedItems, setOrderedItems] = useState(new Set());
+
+  const handleReorderItem = (item) => {
+    if (item.supplier_url) {
+      window.open(item.supplier_url, '_blank');
+    }
+    onReorder(item.id, reorderQuantities[item.id]);
+    setOrderedItems(prev => new Set([...prev, item.id]));
+  };
+
+  const totalEstimatedCost = items.reduce((sum, item) => {
+    if (orderedItems.has(item.id)) return sum;
+    return sum + (reorderQuantities[item.id] * (item.cost_per_unit || 0));
+  }, 0);
+
+  const remainingItems = items.filter(i => !orderedItems.has(i.id));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-charcoal/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="p-6 border-b border-charcoal/10">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-playfair text-xl font-semibold text-charcoal flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-yellow-600" />
+                Reorder List
+              </h2>
+              <p className="text-sm text-charcoal/60 mt-1">
+                {remainingItems.length} items need reordering
+              </p>
+            </div>
+            {totalEstimatedCost > 0 && (
+              <div className="text-right">
+                <p className="text-xs text-charcoal/50">Est. Total</p>
+                <p className="font-semibold text-charcoal">{formatPrice(totalEstimatedCost)}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {remainingItems.length > 0 ? (
+            <div className="space-y-3">
+              {remainingItems.map((item) => (
+                <div key={item.id} className="bg-bone/50 rounded-xl p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-inter font-semibold text-charcoal">{item.name}</h3>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          item.status === 'out_of_stock' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {item.quantity} left
+                        </span>
+                      </div>
+                      <p className="text-sm text-charcoal/60">
+                        {item.supplier || 'No supplier'} 
+                        {item.cost_per_unit && ` • ${formatPrice(item.cost_per_unit)} each`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        value={reorderQuantities[item.id]}
+                        onChange={(e) => setReorderQuantities(prev => ({
+                          ...prev,
+                          [item.id]: parseInt(e.target.value) || 1
+                        }))}
+                        className="w-20 px-3 py-2 bg-white border border-charcoal/10 rounded-lg font-inter text-center
+                                   focus:outline-none focus:ring-2 focus:ring-sage"
+                      />
+                      <button
+                        onClick={() => handleReorderItem(item)}
+                        className="px-4 py-2 bg-sage text-white rounded-lg font-inter text-sm font-medium
+                                   hover:bg-sage/90 flex items-center gap-2"
+                      >
+                        <Truck className="w-4 h-4" />
+                        Order
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Check className="w-12 h-12 text-green-500 mx-auto mb-4" />
+              <h3 className="font-inter font-medium text-charcoal mb-1">All items ordered!</h3>
+              <p className="text-charcoal/50 text-sm">You've placed reorders for all low stock items.</p>
+            </div>
+          )}
+
+          {orderedItems.size > 0 && remainingItems.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-charcoal/10">
+              <p className="text-sm text-charcoal/50 mb-2">Recently Ordered</p>
+              <div className="space-y-2">
+                {items.filter(i => orderedItems.has(i.id)).map(item => (
+                  <div key={item.id} className="flex items-center gap-2 text-sm text-green-600">
+                    <Check className="w-4 h-4" />
+                    <span>{item.name} - {reorderQuantities[item.id]} units ordered</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t border-charcoal/10">
+          <button onClick={onClose} className="btn-secondary w-full">
+            {orderedItems.size > 0 ? 'Done' : 'Close'}
+          </button>
+        </div>
       </div>
     </div>
   );
