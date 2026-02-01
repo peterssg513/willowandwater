@@ -24,6 +24,18 @@ api_url = "http://127.0.0.1"
 [functions.create-checkout]
 verify_jwt = false
 
-# Stripe webhook doesn't use JWT
+# Stripe webhook doesn't use JWT - it uses Stripe signature verification
 [functions.stripe-webhook]
 verify_jwt = false
+
+# Assign cleaner function (called by webhook with service key)
+[functions.assign-cleaner]
+verify_jwt = false
+
+# Charge remaining function (called by admin or cron)
+[functions.charge-remaining]
+verify_jwt = true
+
+# Weekly schedule emails
+[functions.send-weekly-schedules]
+verify_jwt = true

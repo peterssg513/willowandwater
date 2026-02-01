@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   CheckCircle, 
   Bell, 
@@ -14,8 +14,49 @@ import {
   Clock,
   Heart
 } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 const BookingSuccess = ({ onClose }) => {
+  // Update booking status to confirmed when success page loads
+  useEffect(() => {
+    const updateBookingStatus = async () => {
+      try {
+        // Get saved booking data from localStorage
+        const savedBooking = localStorage.getItem('willow_booking_data');
+        if (savedBooking) {
+          const bookingData = JSON.parse(savedBooking);
+          const email = bookingData.contact?.email;
+          
+          if (email) {
+            // Update the most recent booking for this customer to confirmed
+            const { error } = await supabase
+              .from('bookings')
+              .update({
+                status: 'confirmed',
+                payment_status: 'deposit_paid',
+              })
+              .eq('email', email.toLowerCase())
+              .in('status', ['lead', 'payment_initiated'])
+              .order('created_at', { ascending: false })
+              .limit(1);
+
+            if (error) {
+              console.error('Error updating booking status:', error);
+            } else {
+              console.log('Booking status updated to confirmed');
+              // Clear the saved booking data
+              localStorage.removeItem('willow_booking_data');
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error in updateBookingStatus:', err);
+      }
+    };
+
+    updateBookingStatus();
+  }, []);
+
   return (
     <div className="min-h-screen bg-bone py-12 px-4">
       <div className="max-w-2xl mx-auto">
