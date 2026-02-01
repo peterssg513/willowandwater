@@ -19,27 +19,13 @@ import StickyMobileCTA from './components/StickyMobileCTA';
 import ExitIntentPopup from './components/ExitIntentPopup';
 import AbandonedBookingRecovery from './components/AbandonedBookingRecovery';
 
+// Admin imports
+import AdminLogin from './admin/AdminLogin';
+import AdminLayout from './admin/AdminLayout';
+import Dashboard from './admin/Dashboard';
+
 // Service area data
 import { SERVICE_AREA_LIST, getPrimaryServiceAreas, getServiceAreasByTier } from './data/serviceAreas';
-
-// Admin imports
-import AdminLayout from './admin/AdminLayout';
-import AdminLogin from './admin/AdminLogin';
-import Dashboard from './admin/Dashboard';
-import Bookings from './admin/Bookings';
-import Cleaners from './admin/Cleaners';
-import Schedule from './admin/Schedule';
-import Revenue from './admin/Revenue';
-import Recurring from './admin/Recurring';
-import AdminAnalytics from './admin/Analytics';
-import Customers from './admin/Customers';
-import Expenses from './admin/Expenses';
-import Reports from './admin/Reports';
-import Checklists from './admin/Checklists';
-import Communications from './admin/Communications';
-import ActivityLog from './admin/ActivityLog';
-import Inventory from './admin/Inventory';
-import Pricing from './admin/Pricing';
 
 // Get service areas for footer (primary + some secondary)
 const primaryAreas = getPrimaryServiceAreas();
@@ -232,20 +218,6 @@ function App() {
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Dashboard />} />
-        <Route path="bookings" element={<Bookings />} />
-        <Route path="schedule" element={<Schedule />} />
-        <Route path="customers" element={<Customers />} />
-        <Route path="cleaners" element={<Cleaners />} />
-        <Route path="revenue" element={<Revenue />} />
-        <Route path="expenses" element={<Expenses />} />
-        <Route path="recurring" element={<Recurring />} />
-        <Route path="reports" element={<Reports />} />
-        <Route path="checklists" element={<Checklists />} />
-        <Route path="inventory" element={<Inventory />} />
-        <Route path="pricing" element={<Pricing />} />
-        <Route path="communications" element={<Communications />} />
-        <Route path="activity" element={<ActivityLog />} />
-        <Route path="analytics" element={<AdminAnalytics />} />
       </Route>
       
       {/* Fallback to home for unknown routes */}

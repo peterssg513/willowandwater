@@ -1,161 +1,117 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Leaf, Mail, Lock, Loader2, AlertCircle, ArrowLeft, Play } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
-// Check if Supabase is configured
-const isSupabaseConfigured = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
-
 const AdminLogin = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
+    setLoading(true);
     setError('');
 
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email,
         password,
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        throw authError;
+      }
 
-      if (data.user) {
+      if (data.session) {
         navigate('/admin');
       }
     } catch (err) {
       console.error('Login error:', err);
       setError(err.message || 'Failed to sign in. Please check your credentials.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleDemoMode = () => {
-    // Navigate to admin - it will auto-enable demo mode
-    navigate('/admin');
-  };
-
   return (
-    <div className="min-h-screen bg-bone flex items-center justify-center p-4">
+    <div className="min-h-screen bg-bone flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        {/* Back to website */}
-        <Link 
-          to="/"
-          className="inline-flex items-center gap-2 text-charcoal/60 hover:text-charcoal font-inter text-sm mb-8 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to website
-        </Link>
+        {/* Logo/Brand */}
+        <div className="text-center mb-8">
+          <h1 className="font-playfair text-3xl font-semibold text-charcoal">
+            Willow & Water
+          </h1>
+          <p className="text-charcoal/60 font-inter mt-2">Admin Portal</p>
+        </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-sage/10 mb-4">
-              <Leaf className="w-8 h-8 text-sage" />
-            </div>
-            <h1 className="font-playfair text-2xl font-semibold text-charcoal mb-2">
-              Admin Portal
-            </h1>
-            <p className="text-charcoal/60 font-inter text-sm">
-              Sign in to manage Willow & Water
-            </p>
-          </div>
+        {/* Login Card */}
+        <div className="bg-white rounded-2xl shadow-lg shadow-charcoal/5 p-8">
+          <h2 className="font-playfair text-xl font-semibold text-charcoal mb-6">
+            Sign In
+          </h2>
 
-          {/* Demo Mode Banner - shown when Supabase not configured */}
-          {!isSupabaseConfigured && (
-            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-              <p className="text-sm font-inter text-yellow-800 font-medium mb-2">
-                Supabase not configured
-              </p>
-              <p className="text-xs text-yellow-700 mb-3">
-                You can explore the admin portal in demo mode, or connect Supabase for full functionality.
-              </p>
-              <button
-                onClick={handleDemoMode}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-500 
-                           hover:bg-yellow-600 text-white rounded-lg font-inter text-sm font-medium transition-colors"
-              >
-                <Play className="w-4 h-4" />
-                Enter Demo Mode
-              </button>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleLogin} className="space-y-5">
             {/* Email */}
             <div>
-              <label 
-                htmlFor="email" 
-                className="block font-inter text-sm font-medium text-charcoal mb-1.5"
-              >
-                Email Address
+              <label htmlFor="email" className="block text-sm font-medium text-charcoal mb-1.5 font-inter">
+                Email
               </label>
               <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-charcoal/40" />
                 <input
                   type="email"
                   id="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required={isSupabaseConfigured}
-                  placeholder="admin@willowandwater.com"
-                  className="w-full px-4 py-3 pl-11 bg-bone/50 border border-charcoal/10 rounded-xl
+                  required
+                  placeholder="you@example.com"
+                  className="w-full pl-12 pr-4 py-3 bg-bone border border-charcoal/10 rounded-xl
                              font-inter text-charcoal placeholder:text-charcoal/40
-                             focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent
-                             transition-shadow"
+                             focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent"
                 />
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/40" />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <label 
-                htmlFor="password" 
-                className="block font-inter text-sm font-medium text-charcoal mb-1.5"
-              >
+              <label htmlFor="password" className="block text-sm font-medium text-charcoal mb-1.5 font-inter">
                 Password
               </label>
               <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-charcoal/40" />
                 <input
                   type="password"
                   id="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required={isSupabaseConfigured}
+                  required
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 pl-11 bg-bone/50 border border-charcoal/10 rounded-xl
+                  className="w-full pl-12 pr-4 py-3 bg-bone border border-charcoal/10 rounded-xl
                              font-inter text-charcoal placeholder:text-charcoal/40
-                             focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent
-                             transition-shadow"
+                             focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent"
                 />
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/40" />
               </div>
             </div>
 
-            {/* Error */}
+            {/* Error Message */}
             {error && (
-              <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-inter">
-                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                {error}
+              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <p className="text-sm text-red-700 font-inter">{error}</p>
               </div>
             )}
 
-            {/* Submit */}
+            {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading || !isSupabaseConfigured}
-              className="btn-primary w-full flex items-center justify-center gap-2
-                         disabled:opacity-70 disabled:cursor-not-allowed"
+              disabled={loading}
+              className="w-full btn-primary flex items-center justify-center gap-2 py-3
+                         disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
+              {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
                   Signing in...
@@ -165,14 +121,14 @@ const AdminLogin = () => {
               )}
             </button>
           </form>
-
-          {/* Help text */}
-          <p className="mt-6 text-center text-xs text-charcoal/50 font-inter">
-            {isSupabaseConfigured 
-              ? 'Need admin access? Contact the system administrator.'
-              : 'Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable authentication.'}
-          </p>
         </div>
+
+        {/* Back to site */}
+        <p className="text-center mt-6">
+          <a href="/" className="text-sage hover:text-charcoal font-inter text-sm transition-colors">
+            ← Back to website
+          </a>
+        </p>
       </div>
     </div>
   );
