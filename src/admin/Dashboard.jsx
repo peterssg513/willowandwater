@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { formatPrice } from '../utils/pricingLogic';
+import { formatDateForDB } from '../utils/scheduling';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -42,11 +43,11 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const today = new Date();
-      const todayStr = today.toISOString().split('T')[0];
+      const todayStr = formatDateForDB(today);
       const weekEnd = new Date(today);
       weekEnd.setDate(weekEnd.getDate() + 7);
-      const weekEndStr = weekEnd.toISOString().split('T')[0];
-      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+      const weekEndStr = formatDateForDB(weekEnd);
+      const monthStart = formatDateForDB(new Date(today.getFullYear(), today.getMonth(), 1));
 
       // Fetch all data in parallel
       const [

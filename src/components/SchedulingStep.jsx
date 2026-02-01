@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Calendar, ExternalLink, Clock, CheckCircle } from 'lucide-react';
+import { formatDateForDB } from '../utils/scheduling';
 
 const SchedulingStep = ({ bookingData, onBack, onScheduled }) => {
   const [step, setStep] = useState('calendar'); // 'calendar' | 'confirm'
@@ -107,7 +108,7 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
   };
 
   // Get minimum date (today)
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatDateForDB(new Date());
 
   return (
     <div className="max-w-4xl mx-auto">

@@ -79,12 +79,16 @@ export function formatDate(date) {
 
 /**
  * Format date for database (YYYY-MM-DD)
+ * Uses local timezone to avoid UTC conversion issues
  * @param {Date} date 
  * @returns {string}
  */
 export function formatDateForDB(date) {
   const d = new Date(date);
-  return d.toISOString().split('T')[0];
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**

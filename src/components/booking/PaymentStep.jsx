@@ -4,7 +4,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { supabase } from '../../lib/supabaseClient';
 import { formatPrice, formatFrequency, formatTimeSlot, DEPOSIT_PERCENTAGE } from '../../utils/pricingLogic';
-import { formatDate } from '../../utils/scheduling';
+import { formatDate, formatDateForDB } from '../../utils/scheduling';
 
 // Initialize Stripe - check for key first
 const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
@@ -439,7 +439,7 @@ const PaymentForm = ({ data, depositAmount, tipAmount, remainingAmount, totalAft
     try {
       const jobData = {
         customer_id: data.customerId,
-        scheduled_date: data.selectedDate.toISOString().split('T')[0],
+        scheduled_date: formatDateForDB(data.selectedDate),
         scheduled_time: data.selectedTime,
         duration_minutes: data.pricing.firstCleanDuration,
         job_type: 'first_clean',

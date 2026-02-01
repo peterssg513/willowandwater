@@ -13,6 +13,7 @@ import {
   Filter
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { formatDateForDB } from '../utils/scheduling';
 import { formatPrice } from '../utils/pricingLogic';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -52,8 +53,8 @@ const Schedule = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const startStr = dateRange.start.toISOString().split('T')[0];
-      const endStr = dateRange.end.toISOString().split('T')[0];
+      const startStr = formatDateForDB(dateRange.start);
+      const endStr = formatDateForDB(dateRange.end);
 
       const [jobsRes, cleanersRes] = await Promise.all([
         supabase
@@ -122,7 +123,7 @@ const Schedule = () => {
   };
 
   const getJobsByDate = (date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateForDB(date);
     return jobs.filter(j => j.scheduled_date === dateStr);
   };
 
@@ -299,7 +300,7 @@ const Schedule = () => {
           <div className="divide-y divide-charcoal/5">
             {['morning', 'afternoon'].map(timeSlot => {
               const slotJobs = jobs.filter(j => 
-                j.scheduled_date === currentDate.toISOString().split('T')[0] &&
+                j.scheduled_date === formatDateForDB(currentDate) &&
                 j.scheduled_time === timeSlot
               );
 

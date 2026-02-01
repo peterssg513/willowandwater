@@ -13,6 +13,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { formatDateForDB } from '../utils/scheduling';
 import { formatPrice } from '../utils/pricingLogic';
 
 const Payments = () => {
@@ -50,7 +51,7 @@ const Payments = () => {
       // Date filtering
       const today = new Date();
       if (dateRange === 'today') {
-        const todayStr = today.toISOString().split('T')[0];
+        const todayStr = formatDateForDB(today);
         query = query.gte('created_at', todayStr);
       } else if (dateRange === 'week') {
         const weekAgo = new Date(today);

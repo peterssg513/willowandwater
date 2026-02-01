@@ -12,9 +12,11 @@ import {
   Trash2,
   CalendarOff,
   Star,
-  AlertTriangle
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { formatDateForDB } from '../utils/scheduling';
 
 const SERVICE_AREAS = [
   'St. Charles', 'Geneva', 'Batavia', 'Wayne', 
@@ -36,7 +38,7 @@ const Cleaners = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatDateForDB(new Date());
       
       const [cleanersRes, timeOffRes, jobsRes] = await Promise.all([
         supabase
@@ -499,7 +501,7 @@ const AddPTOModal = ({ cleaner, onClose, onAdd }) => {
                 required
                 value={formData.start_date}
                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                min={new Date().toISOString().split('T')[0]}
+                min={formatDateForDB(new Date())}
                 className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
                            focus:outline-none focus:ring-2 focus:ring-sage"
               />
@@ -511,7 +513,7 @@ const AddPTOModal = ({ cleaner, onClose, onAdd }) => {
                 required
                 value={formData.end_date}
                 onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                min={formData.start_date || new Date().toISOString().split('T')[0]}
+                min={formData.start_date || formatDateForDB(new Date())}
                 className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
                            focus:outline-none focus:ring-2 focus:ring-sage"
               />
