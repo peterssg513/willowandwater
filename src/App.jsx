@@ -38,7 +38,6 @@ import Reports from './admin/Reports';
 import Checklists from './admin/Checklists';
 import Communications from './admin/Communications';
 import ActivityLog from './admin/ActivityLog';
-import Settings from './admin/Settings';
 import Inventory from './admin/Inventory';
 import Pricing from './admin/Pricing';
 
@@ -247,7 +246,6 @@ function App() {
         <Route path="communications" element={<Communications />} />
         <Route path="activity" element={<ActivityLog />} />
         <Route path="analytics" element={<AdminAnalytics />} />
-        <Route path="settings" element={<Settings />} />
       </Route>
       
       {/* Fallback to home for unknown routes */}

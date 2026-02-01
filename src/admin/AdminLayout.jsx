@@ -17,7 +17,6 @@ import {
   FileText,
   MessageSquare,
   Activity,
-  Settings,
   UserCircle,
   Package,
   Calculator
@@ -40,7 +39,6 @@ const navigation = [
   { name: 'Messages', href: '/admin/communications', icon: MessageSquare },
   { name: 'Activity', href: '/admin/activity', icon: Activity },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
-  { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
 const AdminLayout = () => {
