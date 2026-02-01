@@ -254,11 +254,12 @@ const PaymentForm = ({ data, depositAmount, tipAmount, remainingAmount, totalAft
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [agreedToPolicy, setAgreedToPolicy] = useState(false);
+  const [paymentElementReady, setPaymentElementReady] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!stripe || !elements || !agreedToPolicy) return;
+    if (!stripe || !elements || !agreedToPolicy || !paymentElementReady) return;
     
     setIsProcessing(true);
     setError(null);
@@ -424,6 +425,8 @@ const PaymentForm = ({ data, depositAmount, tipAmount, remainingAmount, totalAft
           options={{
             layout: 'tabs',
           }}
+          onReady={() => setPaymentElementReady(true)}
+          onLoadError={() => setError('Failed to load payment form. Please refresh and try again.')}
         />
 
         {/* Security Note */}
@@ -470,7 +473,7 @@ const PaymentForm = ({ data, depositAmount, tipAmount, remainingAmount, totalAft
         </button>
         <button
           type="submit"
-          disabled={!stripe || !elements || isProcessing || !agreedToPolicy}
+          disabled={!stripe || !elements || isProcessing || !agreedToPolicy || !paymentElementReady}
           className="flex-1 btn-primary flex items-center justify-center gap-2
                      disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -478,6 +481,11 @@ const PaymentForm = ({ data, depositAmount, tipAmount, remainingAmount, totalAft
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
               Processing...
+            </>
+          ) : !paymentElementReady ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Loading...
             </>
           ) : (
             <>
