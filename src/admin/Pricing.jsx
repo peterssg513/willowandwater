@@ -664,15 +664,43 @@ const Pricing = () => {
                     </span>
                   </div>
                   
+                  {/* Base prices */}
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-charcoal/60">First Clean</span>
-                    <span className="font-inter font-bold text-sage text-xl">{formatPrice(preview.firstCleanPrice)}</span>
+                    <span className="text-sm text-charcoal/60">Base First Clean</span>
+                    <span className="font-inter font-medium text-charcoal">{formatPrice(preview.firstCleanPrice)}</span>
                   </div>
-                  {calcParams.frequency !== 'onetime' && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-charcoal/60">Recurring ({preview.recurring.frequencyDiscount}% off)</span>
-                      <span className="font-inter font-semibold text-charcoal">{formatPrice(preview.recurringPrice)}</span>
+                  
+                  {/* Organic Add-on */}
+                  {getVal('organic_cleaning_addon', 0) > 0 && (
+                    <div className="flex justify-between items-center text-green-600">
+                      <span className="text-sm">+ Organic Add-on</span>
+                      <span className="font-inter font-medium">+{formatPrice(getVal('organic_cleaning_addon', 0))}</span>
                     </div>
+                  )}
+                  
+                  {/* Total with organic */}
+                  <div className="flex justify-between items-center pt-2 border-t border-charcoal/10">
+                    <span className="text-sm font-medium text-charcoal">First Clean Total</span>
+                    <span className="font-inter font-bold text-sage text-xl">{formatPrice(preview.firstCleanPrice + getVal('organic_cleaning_addon', 0))}</span>
+                  </div>
+                  
+                  {calcParams.frequency !== 'onetime' && (
+                    <>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-sm text-charcoal/60">Base Recurring ({preview.recurring.frequencyDiscount}% off)</span>
+                        <span className="font-inter font-medium text-charcoal">{formatPrice(preview.recurringPrice)}</span>
+                      </div>
+                      {getVal('organic_cleaning_addon', 0) > 0 && (
+                        <div className="flex justify-between items-center text-green-600">
+                          <span className="text-sm">+ Organic Add-on</span>
+                          <span className="font-inter font-medium">+{formatPrice(getVal('organic_cleaning_addon', 0))}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-charcoal">Recurring Total</span>
+                        <span className="font-inter font-semibold text-charcoal">{formatPrice(preview.recurringPrice + getVal('organic_cleaning_addon', 0))}</span>
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -704,9 +732,13 @@ const Pricing = () => {
                       <span>Total Cost</span>
                       <span>{formatPrice(preview.firstClean?.totalCost)}</span>
                     </div>
+                    <div className="flex justify-between font-medium text-charcoal">
+                      <span>Total Revenue (with organic)</span>
+                      <span>{formatPrice(preview.firstCleanPrice + getVal('organic_cleaning_addon', 0))}</span>
+                    </div>
                     <div className="flex justify-between font-bold text-green-700">
-                      <span>Profit ({preview.firstClean?.margin}% margin)</span>
-                      <span className="text-green-600">{formatPrice(preview.firstClean?.profit)}</span>
+                      <span>Profit ({(((preview.firstCleanPrice + getVal('organic_cleaning_addon', 0)) - preview.firstClean?.totalCost) / (preview.firstCleanPrice + getVal('organic_cleaning_addon', 0)) * 100).toFixed(1)}% margin)</span>
+                      <span className="text-green-600">{formatPrice((preview.firstCleanPrice + getVal('organic_cleaning_addon', 0)) - preview.firstClean?.totalCost)}</span>
                     </div>
                   </div>
                 </div>
@@ -721,12 +753,12 @@ const Pricing = () => {
                         <span>{formatPrice(preview.recurring?.totalCost)}</span>
                       </div>
                       <div className="flex justify-between text-charcoal/60">
-                        <span>Price</span>
-                        <span>{formatPrice(preview.recurringPrice)}</span>
+                        <span>Revenue (with organic)</span>
+                        <span>{formatPrice(preview.recurringPrice + getVal('organic_cleaning_addon', 0))}</span>
                       </div>
                       <div className="flex justify-between font-bold text-green-700">
-                        <span>Profit ({preview.recurring?.margin}%)</span>
-                        <span>{formatPrice(preview.recurring?.profit)}</span>
+                        <span>Profit ({(((preview.recurringPrice + getVal('organic_cleaning_addon', 0)) - preview.recurring?.totalCost) / (preview.recurringPrice + getVal('organic_cleaning_addon', 0)) * 100).toFixed(1)}%)</span>
+                        <span>{formatPrice((preview.recurringPrice + getVal('organic_cleaning_addon', 0)) - preview.recurring?.totalCost)}</span>
                       </div>
                     </div>
                   </div>
