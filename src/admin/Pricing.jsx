@@ -287,42 +287,98 @@ const Pricing = () => {
     );
   };
 
+  // Helper to get numeric value (edited or from settings)
+  const getVal = (key, defaultVal) => {
+    if (editedValues.hasOwnProperty(key)) {
+      const v = parseFloat(editedValues[key]);
+      return isNaN(v) ? defaultVal : v;
+    }
+    if (settings.hasOwnProperty(key)) {
+      const v = parseFloat(settings[key]);
+      return isNaN(v) ? defaultVal : v;
+    }
+    return defaultVal;
+  };
+
+  // Get the current loaded hourly rate for display
+  const displayLoadedRate = editedValues.hasOwnProperty('loaded_hourly_rate')
+    ? getVal('loaded_hourly_rate', 30)
+    : getVal('base_hourly_rate', 26) * (1 + getVal('payroll_burden_percent', 0.154));
+
   // Calculate preview price using current/edited values
   const calculatePreview = () => {
     if (!costSettings) return null;
     
-    // Merge edited values into cost settings for preview
-    const previewSettings = { ...costSettings };
+    // Build preview settings from scratch using edited values
+    const baseHourlyRate = getVal('base_hourly_rate', 26);
+    const payrollBurden = getVal('payroll_burden_percent', 0.154);
+    const loadedHourlyRate = getVal('loaded_hourly_rate', baseHourlyRate * (1 + payrollBurden));
     
-    // Apply any edited values
-    Object.entries(editedValues).forEach(([key, value]) => {
-      const camelKey = key.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
-      if (previewSettings.hasOwnProperty(camelKey)) {
-        previewSettings[camelKey] = parseFloat(value) || value;
-      }
-      // Handle frequency discounts
-      if (key === 'weekly_discount') previewSettings.frequencyDiscounts.weekly = parseFloat(value) || 0;
-      if (key === 'biweekly_discount') previewSettings.frequencyDiscounts.biweekly = parseFloat(value) || 0;
-      if (key === 'monthly_discount') previewSettings.frequencyDiscounts.monthly = parseFloat(value) || 0;
-    });
+    const weeklySupplies = getVal('weekly_supplies_cost', 24.5);
+    const weeklyGas = getVal('weekly_gas_cost', 50);
+    const weeklyTotal = weeklySupplies + weeklyGas;
+    const jobsPerWeek = getVal('expected_jobs_per_week', 9);
     
-    // Recalculate derived values
-    const weeklyTotal = (parseFloat(editedValues.weekly_supplies_cost ?? settings.weekly_supplies_cost) || 24.5) +
-                        (parseFloat(editedValues.weekly_gas_cost ?? settings.weekly_gas_cost) || 50);
-    const jobsPerWeek = parseFloat(editedValues.expected_jobs_per_week ?? settings.expected_jobs_per_week) || 9;
-    previewSettings.perJobSuppliesGas = weeklyTotal / jobsPerWeek;
+    const annualEquip = getVal('annual_equipment_cost', 750);
+    const jobsPerYear = getVal('expected_jobs_per_year', 450);
     
-    const annualEquip = parseFloat(editedValues.annual_equipment_cost ?? settings.annual_equipment_cost) || 750;
-    const jobsPerYear = parseFloat(editedValues.expected_jobs_per_year ?? settings.expected_jobs_per_year) || 450;
-    previewSettings.perJobEquipment = annualEquip / jobsPerYear;
+    const monthlyMarketing = getVal('monthly_marketing', 250);
+    const monthlyAdmin = getVal('monthly_admin', 250);
+    const monthlyPhone = getVal('monthly_phone', 20);
+    const monthlyWebsite = getVal('monthly_website', 5);
+    const monthlyInsurance = getVal('monthly_insurance', 75);
+    const overheadTotal = monthlyMarketing + monthlyAdmin + monthlyPhone + monthlyWebsite + monthlyInsurance;
     
-    // Recalculate overhead total
-    const overheadTotal = (parseFloat(editedValues.monthly_marketing ?? settings.monthly_marketing) || 250) +
-                          (parseFloat(editedValues.monthly_admin ?? settings.monthly_admin) || 250) +
-                          (parseFloat(editedValues.monthly_phone ?? settings.monthly_phone) || 20) +
-                          (parseFloat(editedValues.monthly_website ?? settings.monthly_website) || 5) +
-                          (parseFloat(editedValues.monthly_insurance ?? settings.monthly_insurance) || 75);
-    previewSettings.monthlyOverheadTotal = overheadTotal;
+    const previewSettings = {
+      // Labor - use the loaded rate directly if edited, otherwise calculate from base
+      baseHourlyRate,
+      payrollBurdenPercent: payrollBurden,
+      loadedHourlyRate: editedValues.hasOwnProperty('loaded_hourly_rate') 
+        ? getVal('loaded_hourly_rate', 30) 
+        : baseHourlyRate * (1 + payrollBurden),
+      soloCleanerMaxSqft: getVal('solo_cleaner_max_sqft', 1999),
+      
+      // Supplies & Gas
+      weeklySuppliesCost: weeklySupplies,
+      weeklyGasCost: weeklyGas,
+      weeklyTotalPerCleaner: weeklyTotal,
+      expectedJobsPerWeek: jobsPerWeek,
+      perJobSuppliesGas: weeklyTotal / jobsPerWeek,
+      
+      // Equipment
+      annualEquipmentCost: annualEquip,
+      expectedJobsPerYear: jobsPerYear,
+      perJobEquipment: annualEquip / jobsPerYear,
+      
+      // Overhead
+      monthlyMarketing,
+      monthlyAdmin,
+      monthlyPhone,
+      monthlyWebsite,
+      monthlyInsurance,
+      monthlyOverheadTotal: overheadTotal,
+      
+      // Pricing
+      targetMarginPercent: getVal('target_margin_percent', 0.45),
+      minimumPrice: getVal('minimum_price', 115),
+      firstCleanHoursMultiplier: getVal('first_clean_hours_multiplier', 1.5),
+      organicCleaningAddon: getVal('organic_cleaning_addon', 20),
+      
+      // Duration
+      baseMinutesPer500Sqft: getVal('base_minutes_per_500_sqft', 30),
+      extraBathroomMinutes: getVal('extra_bathroom_minutes', 15),
+      extraBedroomMinutes: getVal('extra_bedroom_minutes', 10),
+      includedBathrooms: getVal('included_bathrooms', 2),
+      includedBedrooms: getVal('included_bedrooms', 3),
+      
+      // Frequency discounts
+      frequencyDiscounts: {
+        weekly: getVal('weekly_discount', 0.15),
+        biweekly: getVal('biweekly_discount', 0.10),
+        monthly: getVal('monthly_discount', 0.05),
+        onetime: 0,
+      },
+    };
     
     try {
       return calculateProfitablePricing({
@@ -601,7 +657,7 @@ const Pricing = () => {
                   
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between text-charcoal/60">
-                      <span>Labor ({preview.firstClean?.durationHours?.toFixed(1)}h × ${costSettings?.loadedHourlyRate} × {preview.cleanerCount})</span>
+                      <span>Labor ({preview.firstClean?.durationHours?.toFixed(1)}h × ${displayLoadedRate.toFixed(0)} × {preview.cleanerCount})</span>
                       <span className="text-red-600">-{formatPrice(preview.firstClean?.laborCost)}</span>
                     </div>
                     <div className="flex justify-between text-charcoal/60">
