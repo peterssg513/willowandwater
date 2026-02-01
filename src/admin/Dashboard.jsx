@@ -184,14 +184,29 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [bookingsRes, cleanersRes] = await Promise.all([
-        supabase.from('bookings').select('*').order('created_at', { ascending: false }),
-        supabase.from('cleaners').select('*'),
-      ]);
-
-      let bookingsData = bookingsRes.data || [];
-      let cleanersData = cleanersRes.data || [];
+      // Try to fetch from Supabase
+      let bookingsData = [];
+      let cleanersData = [];
       
+      try {
+        const bookingsRes = await supabase.from('bookings').select('*').order('created_at', { ascending: false });
+        if (bookingsRes.data && !bookingsRes.error) {
+          bookingsData = bookingsRes.data;
+        }
+      } catch (e) {
+        console.log('Bookings table not available, using localStorage');
+      }
+      
+      try {
+        const cleanersRes = await supabase.from('cleaners').select('*');
+        if (cleanersRes.data && !cleanersRes.error) {
+          cleanersData = cleanersRes.data;
+        }
+      } catch (e) {
+        console.log('Cleaners table not available, using localStorage');
+      }
+      
+      // Fallback to localStorage if no data from Supabase
       if (bookingsData.length === 0) {
         bookingsData = JSON.parse(localStorage.getItem('bookings') || '[]');
       }
@@ -203,6 +218,7 @@ const Dashboard = () => {
       setCleaners(cleanersData);
     } catch (error) {
       console.error('Error fetching data:', error);
+      // Always fallback to localStorage on any error
       setBookings(JSON.parse(localStorage.getItem('bookings') || '[]'));
       setCleaners(JSON.parse(localStorage.getItem('cleaners') || '[]'));
     } finally {

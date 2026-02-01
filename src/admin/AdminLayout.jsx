@@ -72,6 +72,8 @@ const AdminLayout = () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           setUser(session.user);
+          // Always ensure demo data exists as fallback for when tables don't exist
+          initializeDemoData();
         }
       } catch (error) {
         console.error('Auth check error:', error);
