@@ -33,7 +33,7 @@ const FREQUENCY_DISCOUNTS = {
 };
 
 // Deposit percentage
-const DEPOSIT_PERCENTAGE = 0.20; // 20%
+export const DEPOSIT_PERCENTAGE = 0.20; // 20%
 
 // Cancellation fees
 const CANCELLATION_FEES = {

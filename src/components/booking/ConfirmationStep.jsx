@@ -11,8 +11,8 @@ import {
   Mail,
   Home
 } from 'lucide-react';
-import { formatPrice, formatFrequency } from '../../utils/pricingLogic';
-import { formatDate, formatTimeSlot } from '../../utils/scheduling';
+import { formatPrice, formatFrequency, formatTimeSlot } from '../../utils/pricingLogic';
+import { formatDate } from '../../utils/scheduling';
 
 /**
  * ConfirmationStep - Booking success + referral sharing

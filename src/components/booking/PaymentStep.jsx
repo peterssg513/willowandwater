@@ -3,8 +3,8 @@ import { ArrowLeft, Loader2, CreditCard, Shield, AlertTriangle, Heart } from 'lu
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { supabase } from '../../lib/supabaseClient';
-import { formatPrice, formatFrequency, DEPOSIT_PERCENTAGE } from '../../utils/pricingLogic';
-import { formatDate, formatTimeSlot } from '../../utils/scheduling';
+import { formatPrice, formatFrequency, formatTimeSlot, DEPOSIT_PERCENTAGE } from '../../utils/pricingLogic';
+import { formatDate } from '../../utils/scheduling';
 
 // Initialize Stripe
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
