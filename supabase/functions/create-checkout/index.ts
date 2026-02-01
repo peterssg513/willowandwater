@@ -126,8 +126,23 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Stripe checkout error:", error);
+    
+    // Provide more specific error messages
+    let errorMessage = "Payment processing failed. Please try again.";
+    
+    if (error.type === 'StripeAuthenticationError') {
+      errorMessage = "Payment configuration error. Please contact support.";
+    } else if (error.type === 'StripeInvalidRequestError') {
+      errorMessage = error.message || "Invalid payment request.";
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: errorMessage,
+        details: error.type || 'unknown',
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 

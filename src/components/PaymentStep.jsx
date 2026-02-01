@@ -103,7 +103,15 @@ const PaymentStep = ({ bookingData, onBack, onComplete }) => {
       }
     } catch (err) {
       console.error('Payment error:', err);
-      setError(err.message || 'Failed to initiate payment. Please try again.');
+      // Show user-friendly error but log details
+      let userMessage = err.message || 'Failed to initiate payment. Please try again.';
+      
+      // If it's a generic error, provide contact info
+      if (userMessage.includes('non-2xx') || userMessage.includes('Edge Function') || userMessage.includes('Failed to fetch')) {
+        userMessage = 'Payment system temporarily unavailable. Please call us at (630) 267-0096 to complete your booking.';
+      }
+      
+      setError(userMessage);
       setIsProcessing(false);
     }
   };
