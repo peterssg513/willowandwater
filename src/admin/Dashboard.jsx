@@ -22,11 +22,12 @@ import {
   MapPin,
   Sparkles,
   Eye,
-  X
+  X,
+  Database,
+  WifiOff
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { formatPrice } from '../utils/pricingLogic';
-import { initializeDemoData, resetDemoData, DEMO_BOOKINGS, DEMO_CLEANERS } from './demoData';
 
 // Quick Contact Button
 const QuickContactButton = ({ type, value, name, size = 'sm' }) => {
@@ -177,110 +178,84 @@ const Dashboard = () => {
   const [bookings, setBookings] = useState([]);
   const [cleaners, setCleaners] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [dataSource, setDataSource] = useState('loading');
+  const [error, setError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState(null);
 
-  // Force initialize demo data on component mount
   useEffect(() => {
-    // Force initialize demo data immediately
-    initializeDemoData(true);
     fetchDashboardData();
   }, []);
 
-  // Helper to safely get localStorage data
-  const getLocalData = () => {
-    try {
-      const localBookings = localStorage.getItem('bookings');
-      const localCleaners = localStorage.getItem('cleaners');
-      
-      let bookingsData = [];
-      let cleanersData = [];
-      
-      if (localBookings) {
-        try {
-          bookingsData = JSON.parse(localBookings);
-          if (!Array.isArray(bookingsData)) bookingsData = [];
-        } catch { bookingsData = []; }
-      }
-      
-      if (localCleaners) {
-        try {
-          cleanersData = JSON.parse(localCleaners);
-          if (!Array.isArray(cleanersData)) cleanersData = [];
-        } catch { cleanersData = []; }
-      }
-      
-      return { bookingsData, cleanersData };
-    } catch (e) {
-      console.error('Error reading localStorage:', e);
-      return { bookingsData: [], cleanersData: [] };
-    }
-  };
-
   const fetchDashboardData = async () => {
     setLoading(true);
+    setError(null);
+    setDebugInfo(null);
     
-    // Always get local data as fallback first
-    const localData = getLocalData();
-    let finalBookings = localData.bookingsData;
-    let finalCleaners = localData.cleanersData;
-    let source = 'demo';
+    const debug = {
+      bookingsQuery: null,
+      cleanersQuery: null,
+      bookingsError: null,
+      cleanersError: null,
+    };
     
-    // Try Supabase with timeout
     try {
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 5000)
-      );
+      // Fetch bookings from Supabase
+      console.log('Fetching bookings from Supabase...');
+      const bookingsRes = await supabase
+        .from('bookings')
+        .select('*')
+        .order('created_at', { ascending: false });
       
-      // Try bookings
-      try {
-        const bookingsPromise = supabase.from('bookings').select('*').order('created_at', { ascending: false });
-        const bookingsRes = await Promise.race([bookingsPromise, timeoutPromise]);
-        
-        if (bookingsRes && bookingsRes.data && Array.isArray(bookingsRes.data) && bookingsRes.data.length > 0) {
-          finalBookings = bookingsRes.data;
-          source = 'supabase';
-          console.log('Loaded bookings from Supabase:', finalBookings.length);
-        } else if (bookingsRes && bookingsRes.error) {
-          console.log('Supabase bookings error:', bookingsRes.error.message);
-        }
-      } catch (e) {
-        console.log('Bookings fetch failed, using local:', e.message);
+      debug.bookingsQuery = {
+        data: bookingsRes.data ? `${bookingsRes.data.length} rows` : 'null',
+        error: bookingsRes.error ? bookingsRes.error.message : null,
+        status: bookingsRes.status,
+      };
+      
+      if (bookingsRes.error) {
+        console.error('Bookings error:', bookingsRes.error);
+        debug.bookingsError = bookingsRes.error.message;
+      } else {
+        console.log('Bookings loaded:', bookingsRes.data?.length || 0);
+        setBookings(bookingsRes.data || []);
+      }
+
+      // Fetch cleaners from Supabase  
+      console.log('Fetching cleaners from Supabase...');
+      const cleanersRes = await supabase
+        .from('cleaners')
+        .select('*');
+      
+      debug.cleanersQuery = {
+        data: cleanersRes.data ? `${cleanersRes.data.length} rows` : 'null',
+        error: cleanersRes.error ? cleanersRes.error.message : null,
+        status: cleanersRes.status,
+      };
+      
+      if (cleanersRes.error) {
+        console.error('Cleaners error:', cleanersRes.error);
+        debug.cleanersError = cleanersRes.error.message;
+      } else {
+        console.log('Cleaners loaded:', cleanersRes.data?.length || 0);
+        setCleaners(cleanersRes.data || []);
+      }
+
+      // Set any errors for display
+      if (bookingsRes.error || cleanersRes.error) {
+        const errors = [];
+        if (bookingsRes.error) errors.push(`Bookings: ${bookingsRes.error.message}`);
+        if (cleanersRes.error) errors.push(`Cleaners: ${cleanersRes.error.message}`);
+        setError(errors.join('; '));
       }
       
-      // Try cleaners
-      try {
-        const cleanersPromise = supabase.from('cleaners').select('*');
-        const cleanersRes = await Promise.race([cleanersPromise, timeoutPromise]);
-        
-        if (cleanersRes && cleanersRes.data && Array.isArray(cleanersRes.data) && cleanersRes.data.length > 0) {
-          finalCleaners = cleanersRes.data;
-          source = 'supabase';
-          console.log('Loaded cleaners from Supabase:', finalCleaners.length);
-        } else if (cleanersRes && cleanersRes.error) {
-          console.log('Supabase cleaners error:', cleanersRes.error.message);
-        }
-      } catch (e) {
-        console.log('Cleaners fetch failed, using local:', e.message);
-      }
-    } catch (error) {
-      console.log('Supabase fetch failed entirely, using local data');
+      setDebugInfo(debug);
+      
+    } catch (err) {
+      console.error('Dashboard fetch error:', err);
+      setError(`Failed to fetch data: ${err.message}`);
+      setDebugInfo({ ...debug, catchError: err.message });
+    } finally {
+      setLoading(false);
     }
-    
-    // If we still have no data, force reinitialize demo data
-    if (finalBookings.length === 0 && finalCleaners.length === 0) {
-      console.log('No data found, forcing demo data initialization');
-      initializeDemoData(true);
-      const freshLocal = getLocalData();
-      finalBookings = freshLocal.bookingsData;
-      finalCleaners = freshLocal.cleanersData;
-    }
-    
-    console.log('Dashboard data loaded - Bookings:', finalBookings.length, 'Cleaners:', finalCleaners.length, 'Source:', source);
-    
-    setBookings(finalBookings);
-    setCleaners(finalCleaners);
-    setDataSource(source);
-    setLoading(false);
   };
 
   // Computed stats and alerts
@@ -423,37 +398,55 @@ const Dashboard = () => {
     return alertList;
   }, [todaysJobs, upcomingThisWeek, stats, inventoryAlerts]);
 
-  // Handle reset demo data
-  const handleResetData = () => {
-    resetDemoData();
-    fetchDashboardData();
-  };
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-sage border-t-transparent" />
-        <p className="text-charcoal/60 font-inter text-sm">Loading dashboard data...</p>
+        <p className="text-charcoal/60 font-inter text-sm">Loading data from Supabase...</p>
       </div>
     );
   }
 
-  // Show empty state with reset option if no data
-  if (bookings.length === 0 && cleaners.length === 0) {
+  // Show error state if there was an error
+  if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <div className="text-center">
-          <h2 className="font-playfair text-xl font-semibold text-charcoal mb-2">No Data Found</h2>
-          <p className="text-charcoal/60 font-inter text-sm mb-4">
-            Click below to load demo data and explore the dashboard.
-          </p>
-          <button 
-            onClick={handleResetData}
-            className="btn-primary flex items-center gap-2 mx-auto"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Load Demo Data
-          </button>
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="p-2 bg-red-100 rounded-lg">
+              <WifiOff className="w-6 h-6 text-red-600" />
+            </div>
+            <div className="flex-1">
+              <h2 className="font-playfair text-xl font-semibold text-red-800 mb-2">
+                Database Connection Issue
+              </h2>
+              <p className="text-red-700 font-inter text-sm mb-4">{error}</p>
+              
+              <div className="bg-white/50 rounded-lg p-4 mb-4">
+                <p className="text-sm font-inter text-red-800 font-medium mb-2">Possible causes:</p>
+                <ul className="text-sm text-red-700 space-y-1 list-disc list-inside">
+                  <li>RLS policies may be blocking access - check if your user is authenticated</li>
+                  <li>Tables may not exist yet - run the SQL migrations in Supabase</li>
+                  <li>Network connectivity issues</li>
+                </ul>
+              </div>
+
+              {debugInfo && (
+                <details className="text-xs text-red-600 bg-red-100/50 rounded p-2">
+                  <summary className="cursor-pointer font-medium">Debug Info</summary>
+                  <pre className="mt-2 overflow-auto">{JSON.stringify(debugInfo, null, 2)}</pre>
+                </details>
+              )}
+              
+              <button 
+                onClick={fetchDashboardData}
+                className="mt-4 btn-primary flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Retry Connection
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -467,31 +460,33 @@ const Dashboard = () => {
           <h1 className="font-playfair text-2xl sm:text-3xl font-semibold text-charcoal">
             Dashboard
           </h1>
-          <p className="text-charcoal/60 font-inter mt-1">
+          <p className="text-charcoal/60 font-inter mt-1 flex items-center gap-2">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            {dataSource === 'demo' && (
-              <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
-                Demo Data
-              </span>
-            )}
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Database className="w-3 h-3" />
+              Supabase
+            </span>
           </p>
         </div>
-        <div className="flex gap-2 self-start">
-          <button 
-            onClick={handleResetData}
-            className="btn-secondary flex items-center gap-2 text-sm"
-            title="Reset to demo data"
-          >
-            Reset Data
-          </button>
-          <button 
-            onClick={fetchDashboardData}
-            className="btn-secondary flex items-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
-        </div>
+        <button 
+          onClick={fetchDashboardData}
+          className="btn-secondary self-start flex items-center gap-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </button>
+      </div>
+      
+      {/* Data Summary */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <p className="text-blue-800 font-inter text-sm">
+          <strong>Connected to Supabase:</strong> Found {bookings.length} booking{bookings.length !== 1 ? 's' : ''} and {cleaners.length} cleaner{cleaners.length !== 1 ? 's' : ''} in your database.
+          {bookings.length === 0 && cleaners.length === 0 && (
+            <span className="block mt-1 text-blue-600">
+              Your database is empty. Add some data through the Bookings or Team pages, or run the sample data SQL in Supabase.
+            </span>
+          )}
+        </p>
       </div>
 
       {/* Alerts Panel */}

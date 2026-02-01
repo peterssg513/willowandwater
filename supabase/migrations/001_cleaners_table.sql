@@ -86,3 +86,29 @@ FROM cleaners c
 LEFT JOIN bookings b ON c.id = b.cleaner_id
 WHERE c.status = 'active'
 ORDER BY c.name, b.scheduled_date;
+
+-- =====================================================
+-- Row Level Security (RLS) Policies for Cleaners
+-- =====================================================
+
+ALTER TABLE cleaners ENABLE ROW LEVEL SECURITY;
+
+-- Authenticated users can read all cleaners
+CREATE POLICY "Authenticated users can read cleaners" ON cleaners
+    FOR SELECT
+    USING (auth.role() = 'authenticated');
+
+-- Authenticated users can insert cleaners
+CREATE POLICY "Authenticated users can insert cleaners" ON cleaners
+    FOR INSERT
+    WITH CHECK (auth.role() = 'authenticated');
+
+-- Authenticated users can update cleaners
+CREATE POLICY "Authenticated users can update cleaners" ON cleaners
+    FOR UPDATE
+    USING (auth.role() = 'authenticated');
+
+-- Authenticated users can delete cleaners
+CREATE POLICY "Authenticated users can delete cleaners" ON cleaners
+    FOR DELETE
+    USING (auth.role() = 'authenticated');
