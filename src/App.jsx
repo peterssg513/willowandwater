@@ -16,7 +16,6 @@ import ServiceAreasPage from './components/ServiceAreasPage';
 import BlogList from './components/BlogList';
 import BlogPost from './components/BlogPost';
 import StickyMobileCTA from './components/StickyMobileCTA';
-import ExitIntentPopup from './components/ExitIntentPopup';
 
 // Admin imports
 import AdminLogin from './admin/AdminLogin';
@@ -83,7 +82,6 @@ function HomePage() {
       
       {/* Conversion Optimization Components */}
       <StickyMobileCTA />
-      <ExitIntentPopup />
 
       {/* Footer */}
       <footer className="bg-charcoal py-12">
