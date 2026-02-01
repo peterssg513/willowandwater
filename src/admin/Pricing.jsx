@@ -247,17 +247,21 @@ const Pricing = () => {
         if (updateError) throw updateError;
       }
 
-      // Log activity
-      await supabase.from('activity_log').insert({
-        entity_type: 'settings',
-        entity_id: 'pricing',
-        action: 'updated',
-        actor_type: 'admin',
-        details: { 
-          updated_keys: Object.keys(updates),
-          changes: updates
-        }
-      }).catch(() => {}); // Don't fail if activity log fails
+      // Log activity (don't fail if activity log fails)
+      try {
+        await supabase.from('activity_log').insert({
+          entity_type: 'settings',
+          entity_id: 'pricing',
+          action: 'updated',
+          actor_type: 'admin',
+          details: { 
+            updated_keys: Object.keys(updates),
+            changes: updates
+          }
+        });
+      } catch (logError) {
+        console.warn('Activity log failed:', logError);
+      }
 
       setSuccess('Pricing settings saved! Changes are now live.');
       setEditedValues({});
