@@ -11,7 +11,9 @@ import {
   Repeat,
   Star,
   Clock,
-  Plus
+  Plus,
+  UserCheck,
+  Edit3
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -66,6 +68,8 @@ const Customers = () => {
           totalSpent: 0,
           firstBooking: booking.created_at,
           lastBooking: booking.scheduled_date || booking.created_at,
+          customerType: booking.customer_type || 'first_time',
+          latestBookingId: booking.id,
         });
       }
 
@@ -76,10 +80,13 @@ const Customers = () => {
       // Update to most recent booking info
       if (booking.scheduled_date > customer.lastBooking) {
         customer.lastBooking = booking.scheduled_date;
+        customer.latestBookingId = booking.id;
       }
       if (booking.name) customer.name = booking.name;
       if (booking.phone) customer.phone = booking.phone;
       if (booking.address) customer.address = booking.address;
+      // Use the most recent customer_type
+      if (booking.customer_type) customer.customerType = booking.customer_type;
       if (booking.frequency && booking.frequency !== 'onetime') {
         customer.frequency = booking.frequency;
         customer.isRecurring = true;
@@ -94,9 +101,11 @@ const Customers = () => {
 
     // Filter by type
     if (filter === 'recurring') {
-      result = result.filter(c => c.isRecurring);
+      result = result.filter(c => c.customerType === 'recurring');
     } else if (filter === 'one-time') {
-      result = result.filter(c => !c.isRecurring);
+      result = result.filter(c => c.customerType === 'one_time');
+    } else if (filter === 'first-time') {
+      result = result.filter(c => c.customerType === 'first_time');
     }
 
     // Search filter
@@ -124,6 +133,26 @@ const Customers = () => {
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price || 0);
+  };
+
+  // Update customer type
+  const updateCustomerType = async (customer, newType) => {
+    try {
+      // Update all bookings for this customer
+      const { error } = await supabase
+        .from('bookings')
+        .update({ customer_type: newType })
+        .eq('email', customer.email.toLowerCase());
+
+      if (error) throw error;
+
+      // Update local state
+      setSelectedCustomer(prev => prev ? { ...prev, customerType: newType } : null);
+      fetchBookings();
+    } catch (error) {
+      console.error('Error updating customer type:', error);
+      alert('Failed to update customer type');
+    }
   };
 
   // Generate next booking for recurring customer
@@ -194,7 +223,7 @@ const Customers = () => {
             Customers
           </h1>
           <p className="text-charcoal/60 font-inter mt-1">
-            {customers.length} total customers • {customers.filter(c => c.isRecurring).length} recurring
+            {customers.length} total • {customers.filter(c => c.customerType === 'first_time').length} first time • {customers.filter(c => c.customerType === 'recurring').length} recurring
           </p>
         </div>
         <button onClick={fetchBookings} className="btn-secondary flex items-center gap-2 self-start">
@@ -207,9 +236,10 @@ const Customers = () => {
       <div className="bg-white rounded-2xl shadow-sm border border-charcoal/5 p-4">
         <div className="flex flex-col sm:flex-row gap-4">
           {/* Filter Tabs */}
-          <div className="flex bg-bone rounded-lg p-1">
+          <div className="flex bg-bone rounded-lg p-1 flex-wrap">
             {[
               { key: 'all', label: 'All' },
+              { key: 'first-time', label: 'First Time' },
               { key: 'recurring', label: 'Recurring' },
               { key: 'one-time', label: 'One-time' }
             ].map((f) => (
@@ -262,12 +292,17 @@ const Customers = () => {
                         <h3 className="font-inter font-semibold text-charcoal">{customer.name}</h3>
                         <p className="text-sm text-charcoal/50">{customer.email}</p>
                       </div>
-                      {customer.isRecurring && (
-                        <span className="px-2 py-1 bg-sage/10 text-sage rounded-full text-xs font-inter font-medium flex items-center gap-1">
-                          <Repeat className="w-3 h-3" />
-                          {customer.frequency}
-                        </span>
-                      )}
+                      <span className={`px-2 py-1 rounded-full text-xs font-inter font-medium flex items-center gap-1 ${
+                        customer.customerType === 'recurring' 
+                          ? 'bg-sage/10 text-sage' 
+                          : customer.customerType === 'one_time'
+                          ? 'bg-charcoal/10 text-charcoal/70'
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {customer.customerType === 'recurring' && <Repeat className="w-3 h-3" />}
+                        {customer.customerType === 'first_time' && <UserCheck className="w-3 h-3" />}
+                        {customer.customerType === 'recurring' ? customer.frequency : customer.customerType?.replace('_', ' ')}
+                      </span>
                     </div>
                     <div className="grid sm:grid-cols-3 gap-2 text-sm">
                       <div className="flex items-center gap-2 text-charcoal/60">
@@ -311,14 +346,25 @@ const Customers = () => {
                     {selectedCustomer.name?.[0]?.toUpperCase() || '?'}
                   </span>
                 </div>
-                <div>
+                <div className="flex-1">
                   <h2 className="font-playfair text-xl font-semibold text-charcoal">{selectedCustomer.name}</h2>
-                  {selectedCustomer.isRecurring && (
-                    <span className="px-2 py-1 bg-sage/10 text-sage rounded-full text-xs font-inter font-medium inline-flex items-center gap-1 mt-1">
-                      <Repeat className="w-3 h-3" />
-                      {selectedCustomer.frequency} customer
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2 mt-2">
+                    <select
+                      value={selectedCustomer.customerType || 'first_time'}
+                      onChange={(e) => updateCustomerType(selectedCustomer, e.target.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-inter font-medium border-0 cursor-pointer ${
+                        selectedCustomer.customerType === 'recurring' 
+                          ? 'bg-sage/10 text-sage' 
+                          : selectedCustomer.customerType === 'one_time'
+                          ? 'bg-charcoal/10 text-charcoal/70'
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}
+                    >
+                      <option value="first_time">First Time</option>
+                      <option value="recurring">Recurring</option>
+                      <option value="one_time">One Time</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -380,7 +426,7 @@ const Customers = () => {
             </div>
 
             <div className="p-6 border-t border-charcoal/10 flex gap-3">
-              {selectedCustomer.isRecurring && (
+              {selectedCustomer.customerType === 'recurring' && (
                 <button
                   onClick={() => scheduleNextBooking(selectedCustomer)}
                   className="btn-primary flex items-center gap-2 flex-1"

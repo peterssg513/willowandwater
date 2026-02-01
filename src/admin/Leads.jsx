@@ -46,15 +46,28 @@ const Leads = () => {
 
   const convertToBooking = async (leadId) => {
     try {
-      await supabase
+      const { data, error } = await supabase
         .from('bookings')
-        .update({ status: 'confirmed' })
-        .eq('id', leadId);
+        .update({ 
+          status: 'confirmed',
+          customer_type: 'first_time'
+        })
+        .eq('id', leadId)
+        .select();
 
+      if (error) {
+        console.error('Supabase error:', error);
+        alert(`Failed to convert lead: ${error.message}`);
+        return;
+      }
+
+      console.log('Lead converted successfully:', data);
       setLeads(prev => prev.filter(l => l.id !== leadId));
       setSelectedLead(null);
+      alert('Lead converted to booking successfully!');
     } catch (error) {
       console.error('Error converting lead:', error);
+      alert('Failed to convert lead. Please try again.');
     }
   };
 
