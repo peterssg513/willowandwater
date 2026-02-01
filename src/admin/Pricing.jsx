@@ -113,6 +113,7 @@ const SETTINGS_BY_CATEGORY = {
     { key: 'target_margin_percent', label: 'Target Margin', description: 'Target profit margin (0.45 = 45%)', type: 'percent' },
     { key: 'minimum_price', label: 'Minimum Price', description: 'Never quote below this ($)', type: 'currency' },
     { key: 'first_clean_hours_multiplier', label: 'First Clean Multiplier', description: 'Hours multiplier for deep clean (1.5 = 50% longer)', type: 'multiplier' },
+    { key: 'organic_cleaning_addon', label: 'Organic Cleaning Add-on', description: 'Price for organic/non-toxic upgrade ($)', type: 'currency' },
   ],
   duration: [
     { key: 'base_minutes_per_500_sqft', label: 'Minutes per 500 sqft', description: 'Base cleaning time per 500 sqft', type: 'number' },

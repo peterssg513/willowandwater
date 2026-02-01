@@ -46,6 +46,7 @@ const DEFAULT_COST_SETTINGS = {
   target_margin_percent: 0.45,
   minimum_price: 115,
   first_clean_hours_multiplier: 1.5,
+  organic_cleaning_addon: 20,
   
   // Duration calculation
   base_minutes_per_500_sqft: 30,
@@ -163,6 +164,7 @@ function buildSettingsObject(raw) {
     targetMarginPercent: raw.target_margin_percent || 0.45,
     minimumPrice: raw.minimum_price || 115,
     firstCleanHoursMultiplier: raw.first_clean_hours_multiplier || 1.5,
+    organicCleaningAddon: raw.organic_cleaning_addon || 20,
     
     // Duration
     baseMinutesPer500Sqft: raw.base_minutes_per_500_sqft || 30,
