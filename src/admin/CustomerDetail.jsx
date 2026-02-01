@@ -23,7 +23,10 @@ import {
   Loader2,
   X,
   UserX,
-  CalendarPlus
+  CalendarPlus,
+  Repeat,
+  Settings,
+  CalendarDays
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { formatPrice, formatFrequency, calculateCleaningPrice, calculateCleaningDuration } from '../utils/pricingLogic';
@@ -41,6 +44,7 @@ const CustomerDetail = () => {
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddJobModal, setShowAddJobModal] = useState(false);
+  const [showRecurringModal, setShowRecurringModal] = useState(false);
 
   useEffect(() => {
     fetchCustomerData();
@@ -90,6 +94,41 @@ const CustomerDetail = () => {
 
   const updateCustomerStatus = async (newStatus) => {
     try {
+      // If changing to churned, cancel all future jobs
+      if (newStatus === 'churned') {
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Cancel all future scheduled/confirmed jobs
+        const { data: cancelledJobs } = await supabase
+          .from('jobs')
+          .update({ status: 'cancelled' })
+          .eq('customer_id', id)
+          .in('status', ['scheduled', 'confirmed'])
+          .gte('scheduled_date', today)
+          .select();
+
+        // Cancel active subscriptions
+        await supabase
+          .from('subscriptions')
+          .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+          .eq('customer_id', id)
+          .eq('status', 'active');
+
+        // Log cancelled jobs
+        if (cancelledJobs?.length > 0) {
+          await supabase.from('activity_log').insert({
+            entity_type: 'customer',
+            entity_id: id,
+            action: 'future_jobs_cancelled',
+            actor_type: 'admin',
+            details: { 
+              cancelled_count: cancelledJobs.length, 
+              reason: 'customer_churned'
+            }
+          });
+        }
+      }
+
       await supabase
         .from('customers')
         .update({ status: newStatus })
@@ -104,6 +143,11 @@ const CustomerDetail = () => {
       });
 
       setCustomer(prev => ({ ...prev, status: newStatus }));
+      
+      // Refresh data to show updated jobs
+      if (newStatus === 'churned') {
+        fetchCustomerData();
+      }
     } catch (error) {
       console.error('Error updating status:', error);
     }
@@ -372,25 +416,58 @@ const CustomerDetail = () => {
         </div>
       </div>
 
-      {/* Subscription Card */}
-      {activeSubscription && (
-        <div className="bg-sage/5 rounded-2xl border border-sage/20 p-5">
-          <div className="flex items-center justify-between">
+      {/* Recurring Service Card */}
+      <div className={`rounded-2xl border p-5 ${activeSubscription ? 'bg-sage/5 border-sage/20' : 'bg-bone/50 border-charcoal/10'}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activeSubscription ? 'bg-sage/20' : 'bg-charcoal/10'}`}>
+              <Repeat className={`w-5 h-5 ${activeSubscription ? 'text-sage' : 'text-charcoal/40'}`} />
+            </div>
             <div>
-              <h3 className="font-inter font-semibold text-charcoal">Active Subscription</h3>
-              <p className="text-sm text-charcoal/60 mt-1">
-                {formatFrequency(activeSubscription.frequency)} cleaning • {formatPrice(activeSubscription.base_price)}/visit
-              </p>
-              {activeSubscription.preferred_day && (
-                <p className="text-xs text-sage mt-1 capitalize">
-                  Preferred: {activeSubscription.preferred_day}s, {activeSubscription.preferred_time}
+              <h3 className="font-inter font-semibold text-charcoal">
+                {activeSubscription ? 'Recurring Service' : 'No Recurring Service'}
+              </h3>
+              {activeSubscription ? (
+                <>
+                  <p className="text-sm text-charcoal/60 mt-0.5">
+                    {formatFrequency(activeSubscription.frequency)} • {formatPrice(activeSubscription.base_price)}/visit
+                  </p>
+                  {activeSubscription.preferred_day && (
+                    <p className="text-xs text-sage mt-1 capitalize flex items-center gap-1">
+                      <CalendarDays className="w-3 h-3" />
+                      {activeSubscription.preferred_day}s, {activeSubscription.preferred_time}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-charcoal/50 mt-0.5">
+                  Set up recurring cleaning schedule
                 </p>
               )}
             </div>
-            <Calendar className="w-8 h-8 text-sage" />
           </div>
+          <button
+            onClick={() => setShowRecurringModal(true)}
+            className={`px-4 py-2 rounded-xl text-sm font-inter font-medium flex items-center gap-2 transition-colors ${
+              activeSubscription 
+                ? 'bg-sage/10 text-sage hover:bg-sage/20' 
+                : 'bg-sage text-white hover:bg-sage/90'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            {activeSubscription ? 'Manage' : 'Set Up'}
+          </button>
         </div>
-      )}
+        
+        {/* Show upcoming recurring jobs count */}
+        {activeSubscription && upcomingJobs.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-sage/20">
+            <p className="text-sm text-charcoal/60">
+              <span className="font-medium text-charcoal">{upcomingJobs.length}</span> upcoming job{upcomingJobs.length !== 1 ? 's' : ''} scheduled
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Referral Code */}
       {customer.referral_code && (
@@ -608,6 +685,19 @@ const CustomerDetail = () => {
             setJobs(prev => [job, ...prev]);
             setShowAddJobModal(false);
             // Refresh data to get cleaner info
+            fetchCustomerData();
+          }}
+        />
+      )}
+
+      {/* Recurring Service Modal */}
+      {showRecurringModal && (
+        <RecurringServiceModal
+          customer={customer}
+          subscription={activeSubscription}
+          onClose={() => setShowRecurringModal(false)}
+          onSave={() => {
+            setShowRecurringModal(false);
             fetchCustomerData();
           }}
         />
@@ -1357,6 +1447,466 @@ const AddJobModal = ({ customer, onClose, onAdd }) => {
             </button>
             <button type="submit" disabled={saving} className="btn-primary flex-1">
               {saving ? 'Creating...' : 'Create Job'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Recurring Service Modal
+const RecurringServiceModal = ({ customer, subscription, onClose, onSave }) => {
+  const [formData, setFormData] = useState({
+    frequency: subscription?.frequency || 'biweekly',
+    preferred_day: subscription?.preferred_day || 'monday',
+    preferred_time: subscription?.preferred_time || 'morning',
+    base_price: subscription?.base_price || '',
+    generate_jobs_months: 3, // How many months of jobs to generate
+  });
+  const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState(null);
+  const [generatedCount, setGeneratedCount] = useState(null);
+
+  const DAYS_OF_WEEK = [
+    { value: 'monday', label: 'Monday' },
+    { value: 'tuesday', label: 'Tuesday' },
+    { value: 'wednesday', label: 'Wednesday' },
+    { value: 'thursday', label: 'Thursday' },
+    { value: 'friday', label: 'Friday' },
+  ];
+
+  const FREQUENCIES = [
+    { value: 'weekly', label: 'Weekly', description: 'Every week' },
+    { value: 'biweekly', label: 'Bi-Weekly', description: 'Every 2 weeks' },
+    { value: 'monthly', label: 'Monthly', description: 'Once a month' },
+  ];
+
+  // Calculate price based on customer property and frequency
+  useEffect(() => {
+    if (!subscription?.base_price && customer.sqft) {
+      // Auto-calculate price if not set
+      const baseRate = 40; // per 500 sqft
+      const sqftUnits = Math.ceil(customer.sqft / 500);
+      let price = sqftUnits * baseRate;
+      
+      // Apply frequency discount
+      if (formData.frequency === 'weekly') price *= 0.65;
+      else if (formData.frequency === 'biweekly') price *= 0.80;
+      else if (formData.frequency === 'monthly') price *= 0.90;
+      
+      // Add extra bathroom/bedroom charges
+      if (customer.bathrooms > 2) price += (customer.bathrooms - 2) * 15;
+      if (customer.bedrooms > 3) price += (customer.bedrooms - 3) * 10;
+      
+      setFormData(prev => ({ ...prev, base_price: Math.round(price) }));
+    }
+  }, [formData.frequency, customer, subscription]);
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Generate recurring jobs based on frequency and day
+  const generateRecurringJobs = async (subscriptionId, monthsAhead = 3) => {
+    setGenerating(true);
+    setGeneratedCount(null);
+    
+    try {
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + monthsAhead);
+      
+      // Get existing scheduled jobs to avoid duplicates
+      const { data: existingJobs } = await supabase
+        .from('jobs')
+        .select('scheduled_date')
+        .eq('customer_id', customer.id)
+        .in('status', ['scheduled', 'confirmed'])
+        .gte('scheduled_date', startDate.toISOString().split('T')[0]);
+      
+      const existingDates = new Set(existingJobs?.map(j => j.scheduled_date) || []);
+      
+      // Calculate job dates based on frequency
+      const dayIndex = DAYS_OF_WEEK.findIndex(d => d.value === formData.preferred_day);
+      const targetDayOfWeek = dayIndex + 1; // Monday = 1, etc.
+      
+      const jobDates = [];
+      const current = new Date(startDate);
+      
+      // Find first occurrence of the preferred day
+      while (current.getDay() !== targetDayOfWeek) {
+        current.setDate(current.getDate() + 1);
+      }
+      
+      // Generate dates based on frequency
+      while (current <= endDate) {
+        const dateStr = current.toISOString().split('T')[0];
+        if (!existingDates.has(dateStr)) {
+          jobDates.push(dateStr);
+        }
+        
+        if (formData.frequency === 'weekly') {
+          current.setDate(current.getDate() + 7);
+        } else if (formData.frequency === 'biweekly') {
+          current.setDate(current.getDate() + 14);
+        } else if (formData.frequency === 'monthly') {
+          current.setMonth(current.getMonth() + 1);
+          // Reset to first occurrence of preferred day in the new month
+          current.setDate(1);
+          while (current.getDay() !== targetDayOfWeek) {
+            current.setDate(current.getDate() + 1);
+          }
+        }
+      }
+      
+      if (jobDates.length === 0) {
+        setGeneratedCount(0);
+        return 0;
+      }
+      
+      // Calculate duration
+      const durationMinutes = Math.round(
+        (customer.sqft || 2000) / 500 * 30 +
+        Math.max(0, (customer.bathrooms || 2) - 2) * 15 +
+        Math.max(0, (customer.bedrooms || 3) - 3) * 10
+      );
+      
+      // Create jobs
+      const jobsToCreate = jobDates.map(date => ({
+        customer_id: customer.id,
+        subscription_id: subscriptionId,
+        scheduled_date: date,
+        scheduled_time: formData.preferred_time,
+        duration_minutes: durationMinutes,
+        job_type: 'recurring',
+        base_price: parseFloat(formData.base_price),
+        addons_price: 0,
+        total_price: parseFloat(formData.base_price),
+        final_price: parseFloat(formData.base_price),
+        status: 'scheduled',
+        payment_status: 'pending',
+      }));
+      
+      const { error: insertError } = await supabase
+        .from('jobs')
+        .insert(jobsToCreate);
+      
+      if (insertError) throw insertError;
+      
+      // Log activity
+      await supabase.from('activity_log').insert({
+        entity_type: 'customer',
+        entity_id: customer.id,
+        action: 'recurring_jobs_generated',
+        actor_type: 'admin',
+        details: { 
+          count: jobsToCreate.length,
+          frequency: formData.frequency,
+          months_ahead: monthsAhead
+        }
+      });
+      
+      setGeneratedCount(jobsToCreate.length);
+      return jobsToCreate.length;
+    } catch (err) {
+      console.error('Error generating jobs:', err);
+      throw err;
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+
+    try {
+      if (!formData.base_price) {
+        throw new Error('Please enter a price per visit');
+      }
+
+      let subscriptionId = subscription?.id;
+
+      if (subscription) {
+        // Update existing subscription
+        const { error: updateError } = await supabase
+          .from('subscriptions')
+          .update({
+            frequency: formData.frequency,
+            preferred_day: formData.preferred_day,
+            preferred_time: formData.preferred_time,
+            base_price: parseFloat(formData.base_price),
+            status: 'active',
+          })
+          .eq('id', subscription.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Create new subscription
+        const { data: newSub, error: createError } = await supabase
+          .from('subscriptions')
+          .insert({
+            customer_id: customer.id,
+            frequency: formData.frequency,
+            preferred_day: formData.preferred_day,
+            preferred_time: formData.preferred_time,
+            base_price: parseFloat(formData.base_price),
+            status: 'active',
+            started_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        subscriptionId = newSub.id;
+      }
+
+      // Update customer status to active if not already
+      if (customer.status !== 'active') {
+        await supabase
+          .from('customers')
+          .update({ status: 'active' })
+          .eq('id', customer.id);
+      }
+
+      // Generate recurring jobs
+      await generateRecurringJobs(subscriptionId, formData.generate_jobs_months);
+
+      // Log activity
+      await supabase.from('activity_log').insert({
+        entity_type: 'subscription',
+        entity_id: subscriptionId,
+        action: subscription ? 'updated' : 'created',
+        actor_type: 'admin',
+        details: { 
+          customer_id: customer.id,
+          frequency: formData.frequency,
+          price: formData.base_price
+        }
+      });
+
+      onSave();
+    } catch (err) {
+      console.error('Error saving subscription:', err);
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!subscription) return;
+    
+    if (!window.confirm('Cancel recurring service? This will also cancel all future scheduled jobs.')) {
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      // Cancel the subscription
+      await supabase
+        .from('subscriptions')
+        .update({ 
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString()
+        })
+        .eq('id', subscription.id);
+
+      // Cancel all future jobs for this subscription
+      await supabase
+        .from('jobs')
+        .update({ status: 'cancelled' })
+        .eq('subscription_id', subscription.id)
+        .in('status', ['scheduled', 'confirmed'])
+        .gte('scheduled_date', today);
+
+      // Log activity
+      await supabase.from('activity_log').insert({
+        entity_type: 'subscription',
+        entity_id: subscription.id,
+        action: 'cancelled',
+        actor_type: 'admin',
+        details: { customer_id: customer.id }
+      });
+
+      onSave();
+    } catch (err) {
+      console.error('Error cancelling subscription:', err);
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-charcoal/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+        <div className="p-6 border-b border-charcoal/10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-sage/10 flex items-center justify-center">
+              <Repeat className="w-5 h-5 text-sage" />
+            </div>
+            <div>
+              <h2 className="font-playfair text-xl font-semibold text-charcoal">
+                {subscription ? 'Manage' : 'Set Up'} Recurring Service
+              </h2>
+              <p className="text-sm text-charcoal/60">{customer.name}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-charcoal/5 rounded-lg">
+            <X className="w-5 h-5 text-charcoal/50" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              {error}
+            </div>
+          )}
+
+          {generatedCount !== null && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              {generatedCount > 0 
+                ? `Generated ${generatedCount} upcoming job${generatedCount !== 1 ? 's' : ''} on the calendar`
+                : 'All jobs already exist - no new jobs needed'
+              }
+            </div>
+          )}
+
+          {/* Frequency Selection */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal mb-3">Frequency</label>
+            <div className="grid grid-cols-3 gap-2">
+              {FREQUENCIES.map(freq => (
+                <button
+                  key={freq.value}
+                  type="button"
+                  onClick={() => handleChange('frequency', freq.value)}
+                  className={`
+                    p-3 rounded-xl border-2 text-center transition-all
+                    ${formData.frequency === freq.value
+                      ? 'border-sage bg-sage/10'
+                      : 'border-charcoal/10 hover:border-sage/50'
+                    }
+                  `}
+                >
+                  <p className="font-inter text-sm font-medium text-charcoal">{freq.label}</p>
+                  <p className="text-xs text-charcoal/50 mt-0.5">{freq.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Preferred Day */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal mb-2">Preferred Day</label>
+            <select
+              value={formData.preferred_day}
+              onChange={(e) => handleChange('preferred_day', e.target.value)}
+              className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                         focus:outline-none focus:ring-2 focus:ring-sage"
+            >
+              {DAYS_OF_WEEK.map(day => (
+                <option key={day.value} value={day.value}>{day.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Preferred Time */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal mb-2">Preferred Time</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'morning', label: 'Morning', time: '9am - 12pm' },
+                { value: 'afternoon', label: 'Afternoon', time: '1pm - 5pm' },
+              ].map(time => (
+                <button
+                  key={time.value}
+                  type="button"
+                  onClick={() => handleChange('preferred_time', time.value)}
+                  className={`
+                    p-3 rounded-xl border-2 text-center transition-all
+                    ${formData.preferred_time === time.value
+                      ? 'border-sage bg-sage/10'
+                      : 'border-charcoal/10 hover:border-sage/50'
+                    }
+                  `}
+                >
+                  <p className="font-inter text-sm font-medium text-charcoal">{time.label}</p>
+                  <p className="text-xs text-charcoal/50">{time.time}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Price */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal mb-2">Price per Visit</label>
+            <div className="relative">
+              <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-charcoal/40" />
+              <input
+                type="number"
+                value={formData.base_price}
+                onChange={(e) => handleChange('base_price', e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+                placeholder="150"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Generate Jobs */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal mb-2">
+              Schedule Jobs for Next
+            </label>
+            <select
+              value={formData.generate_jobs_months}
+              onChange={(e) => handleChange('generate_jobs_months', parseInt(e.target.value))}
+              className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                         focus:outline-none focus:ring-2 focus:ring-sage"
+            >
+              <option value={1}>1 month</option>
+              <option value={2}>2 months</option>
+              <option value={3}>3 months</option>
+              <option value={6}>6 months</option>
+              <option value={12}>12 months</option>
+            </select>
+            <p className="text-xs text-charcoal/50 mt-2">
+              Jobs will appear on the calendar and can be assigned to cleaners
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 border-t border-charcoal/10">
+            {subscription && (
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={saving}
+                className="px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-xl text-sm font-inter font-medium transition-colors"
+              >
+                Cancel Service
+              </button>
+            )}
+            <div className="flex-1" />
+            <button type="button" onClick={onClose} className="btn-secondary">
+              Close
+            </button>
+            <button type="submit" disabled={saving || generating} className="btn-primary flex items-center gap-2">
+              {(saving || generating) && <Loader2 className="w-4 h-4 animate-spin" />}
+              {saving ? 'Saving...' : generating ? 'Generating...' : subscription ? 'Update & Generate Jobs' : 'Start Recurring Service'}
             </button>
           </div>
         </form>
