@@ -1,17 +1,21 @@
 import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Leaf, Menu, X } from 'lucide-react';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
   const navLinks = [
-    { label: 'Services', href: '#services' },
-    { label: 'Pricing', href: '#pricing' },
-    { label: 'About', href: '#about' },
-    { label: 'FAQ', href: '#faq' },
-    { label: 'Contact', href: '#contact' },
+    { label: 'Services', href: '#services', homeOnly: true },
+    { label: 'Pricing', href: '#pricing', homeOnly: true },
+    { label: 'Areas', href: '/service-areas', isRoute: true },
+    { label: 'Blog', href: '/blog', isRoute: true },
+    { label: 'About', href: '#about', homeOnly: true },
+    { label: 'Contact', href: '#contact', homeOnly: true },
   ];
 
   return (
@@ -37,20 +41,38 @@ const Navbar = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
             <ul className="flex items-center gap-6">
-              {navLinks.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="font-inter text-charcoal hover:text-sage transition-colors duration-200 text-sm font-medium"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
+              {navLinks.map((link) => {
+                // Skip home-only links when not on home page
+                if (link.homeOnly && !isHomePage) return null;
+                
+                if (link.isRoute) {
+                  return (
+                    <li key={link.label}>
+                      <Link
+                        to={link.href}
+                        className="font-inter text-charcoal hover:text-sage transition-colors duration-200 text-sm font-medium"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  );
+                }
+                
+                return (
+                  <li key={link.label}>
+                    <a
+                      href={isHomePage ? link.href : `/${link.href}`}
+                      className="font-inter text-charcoal hover:text-sage transition-colors duration-200 text-sm font-medium"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
-            <a href="#pricing" className="btn-primary text-sm">
+            <Link to="/#pricing" className="btn-primary text-sm">
               Book Now
-            </a>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -68,21 +90,40 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="md:hidden pb-4 border-t border-sage/10">
             <ul className="flex flex-col gap-2 pt-4">
-              {navLinks.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    onClick={() => setIsMenuOpen(false)}
-                    className="block py-2 px-4 font-inter text-charcoal hover:text-sage hover:bg-sage/5 rounded-lg transition-colors duration-200"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
+              {navLinks.map((link) => {
+                // Skip home-only links when not on home page
+                if (link.homeOnly && !isHomePage) return null;
+                
+                if (link.isRoute) {
+                  return (
+                    <li key={link.label}>
+                      <Link
+                        to={link.href}
+                        onClick={() => setIsMenuOpen(false)}
+                        className="block py-2 px-4 font-inter text-charcoal hover:text-sage hover:bg-sage/5 rounded-lg transition-colors duration-200"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  );
+                }
+                
+                return (
+                  <li key={link.label}>
+                    <a
+                      href={isHomePage ? link.href : `/${link.href}`}
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block py-2 px-4 font-inter text-charcoal hover:text-sage hover:bg-sage/5 rounded-lg transition-colors duration-200"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                );
+              })}
               <li className="pt-2 px-4">
-                <a href="#pricing" className="btn-primary block text-center text-sm">
+                <Link to="/#pricing" className="btn-primary block text-center text-sm">
                   Book Now
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

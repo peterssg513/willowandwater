@@ -3,12 +3,15 @@
  * 
  * Pure pricing calculation logic for the cleaning service quote generator.
  * All functions are exported for independent testing.
+ * 
+ * Settings can be customized via the Admin Portal (/admin/pricing)
+ * and are stored in localStorage under 'pricingSettings'.
  */
 
 // ============================================
-// PRICING CONSTANTS
+// DEFAULT PRICING CONSTANTS
 // ============================================
-export const PRICING_CONSTANTS = {
+const DEFAULT_PRICING_CONSTANTS = {
   BASE_LABOR_COST: 23.34,
   SUPPLY_COST: 4.50,
   TARGET_MARGIN: 0.42,
@@ -16,16 +19,69 @@ export const PRICING_CONSTANTS = {
   ORGANIC_BUFFER: 1.10,
   EFFICIENCY_DISCOUNT: 0.15,
   EFFICIENCY_THRESHOLD_HOURS: 4,
-  FIRST_CLEAN_PREMIUM: 100, // First clean costs $100 more than recurring
+  FIRST_CLEAN_PREMIUM: 100,
+  SQFT_BASE_HOURS: 1.0,
+  SQFT_PER_THOUSAND: 0.5,
+  BATHROOM_HOURS: 0.8,
+  BEDROOM_HOURS: 0.3,
 };
 
-// Frequency multipliers (applied to final price for recurring discount)
-export const FREQUENCY_MULTIPLIERS = {
-  weekly: 0.65,    // High frequency discount
-  biweekly: 0.75,  // Standard recurring
-  monthly: 0.90,   // Light recurring discount
-  onetime: 1.35,   // Deep clean premium
+const DEFAULT_FREQUENCY_MULTIPLIERS = {
+  weekly: 0.65,
+  biweekly: 0.75,
+  monthly: 0.90,
+  onetime: 1.35,
 };
+
+// ============================================
+// LOAD CUSTOM SETTINGS FROM LOCALSTORAGE
+// ============================================
+const getCustomSettings = () => {
+  try {
+    const saved = localStorage.getItem('pricingSettings');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Error loading custom pricing settings:', e);
+  }
+  return null;
+};
+
+// Get current pricing constants (custom or default)
+export const getPricingConstants = () => {
+  const custom = getCustomSettings();
+  if (custom) {
+    return {
+      BASE_LABOR_COST: custom.baseLaborCost ?? DEFAULT_PRICING_CONSTANTS.BASE_LABOR_COST,
+      SUPPLY_COST: custom.supplyCost ?? DEFAULT_PRICING_CONSTANTS.SUPPLY_COST,
+      TARGET_MARGIN: custom.targetMargin ?? DEFAULT_PRICING_CONSTANTS.TARGET_MARGIN,
+      HOURLY_RATE: custom.hourlyRate ?? DEFAULT_PRICING_CONSTANTS.HOURLY_RATE,
+      ORGANIC_BUFFER: custom.organicBuffer ?? DEFAULT_PRICING_CONSTANTS.ORGANIC_BUFFER,
+      EFFICIENCY_DISCOUNT: custom.efficiencyDiscount ?? DEFAULT_PRICING_CONSTANTS.EFFICIENCY_DISCOUNT,
+      EFFICIENCY_THRESHOLD_HOURS: custom.efficiencyThresholdHours ?? DEFAULT_PRICING_CONSTANTS.EFFICIENCY_THRESHOLD_HOURS,
+      FIRST_CLEAN_PREMIUM: custom.firstCleanPremium ?? DEFAULT_PRICING_CONSTANTS.FIRST_CLEAN_PREMIUM,
+      SQFT_BASE_HOURS: custom.sqftBaseHours ?? DEFAULT_PRICING_CONSTANTS.SQFT_BASE_HOURS,
+      SQFT_PER_THOUSAND: custom.sqftPerThousand ?? DEFAULT_PRICING_CONSTANTS.SQFT_PER_THOUSAND,
+      BATHROOM_HOURS: custom.bathroomHours ?? DEFAULT_PRICING_CONSTANTS.BATHROOM_HOURS,
+      BEDROOM_HOURS: custom.bedroomHours ?? DEFAULT_PRICING_CONSTANTS.BEDROOM_HOURS,
+    };
+  }
+  return DEFAULT_PRICING_CONSTANTS;
+};
+
+// Get current frequency multipliers (custom or default)
+export const getFrequencyMultipliers = () => {
+  const custom = getCustomSettings();
+  if (custom?.frequencyMultipliers) {
+    return { ...DEFAULT_FREQUENCY_MULTIPLIERS, ...custom.frequencyMultipliers };
+  }
+  return DEFAULT_FREQUENCY_MULTIPLIERS;
+};
+
+// Export for backward compatibility
+export const PRICING_CONSTANTS = getPricingConstants();
+export const FREQUENCY_MULTIPLIERS = getFrequencyMultipliers();
 
 // ============================================
 // CALCULATION HELPERS
@@ -37,10 +93,11 @@ export const FREQUENCY_MULTIPLIERS = {
  * @returns {number} Base hours
  */
 export const calculateBaseHours = (sqft) => {
+  const settings = getPricingConstants();
   if (sqft < 1000) {
-    return 1.0;
+    return settings.SQFT_BASE_HOURS;
   }
-  return ((sqft - 1000) / 1000 * 0.5) + 1.0;
+  return ((sqft - 1000) / 1000 * settings.SQFT_PER_THOUSAND) + settings.SQFT_BASE_HOURS;
 };
 
 /**
@@ -50,7 +107,8 @@ export const calculateBaseHours = (sqft) => {
  * @returns {number} Room load hours
  */
 export const calculateRoomLoad = (bedrooms, bathrooms) => {
-  return (bathrooms * 0.8) + (bedrooms * 0.3);
+  const settings = getPricingConstants();
+  return (bathrooms * settings.BATHROOM_HOURS) + (bedrooms * settings.BEDROOM_HOURS);
 };
 
 /**
@@ -59,7 +117,8 @@ export const calculateRoomLoad = (bedrooms, bathrooms) => {
  * @returns {number} Hours with organic buffer applied
  */
 export const applyOrganicBuffer = (hours) => {
-  return hours * PRICING_CONSTANTS.ORGANIC_BUFFER;
+  const settings = getPricingConstants();
+  return hours * settings.ORGANIC_BUFFER;
 };
 
 /**
@@ -109,6 +168,10 @@ export const formatPrice = (price) => {
  * @returns {Object} Pricing breakdown
  */
 export const calculateCleaningPrice = ({ sqft, bedrooms, bathrooms, frequency }) => {
+  // Get current settings (may be customized via admin)
+  const settings = getPricingConstants();
+  const freqMultipliers = getFrequencyMultipliers();
+  
   // Step 1: Calculate base hours from square footage
   const baseHours = calculateBaseHours(sqft);
   
@@ -120,23 +183,23 @@ export const calculateCleaningPrice = ({ sqft, bedrooms, bathrooms, frequency })
   const totalHoursWithBuffer = applyOrganicBuffer(totalHoursBeforeBuffer);
   
   // Step 4: Calculate raw price (hours * hourly rate)
-  const rawPrice = totalHoursWithBuffer * PRICING_CONSTANTS.HOURLY_RATE;
+  const rawPrice = totalHoursWithBuffer * settings.HOURLY_RATE;
   
-  // Step 5: Apply efficiency discount (15% off if total hours > 4)
-  const efficiencyDiscountApplied = totalHoursWithBuffer > PRICING_CONSTANTS.EFFICIENCY_THRESHOLD_HOURS;
+  // Step 5: Apply efficiency discount (15% off if total hours > threshold)
+  const efficiencyDiscountApplied = totalHoursWithBuffer > settings.EFFICIENCY_THRESHOLD_HOURS;
   const priceAfterEfficiency = efficiencyDiscountApplied 
-    ? rawPrice * (1 - PRICING_CONSTANTS.EFFICIENCY_DISCOUNT)
+    ? rawPrice * (1 - settings.EFFICIENCY_DISCOUNT)
     : rawPrice;
   
   // Step 6: Apply frequency multiplier (recurring discounts)
-  const frequencyMultiplier = FREQUENCY_MULTIPLIERS[frequency] || FREQUENCY_MULTIPLIERS.biweekly;
+  const frequencyMultiplier = freqMultipliers[frequency] || freqMultipliers.biweekly;
   const priceAfterFrequency = priceAfterEfficiency * frequencyMultiplier;
   
   // Step 7: Round to nearest $5
   const recurringPrice = roundToNearestFive(priceAfterFrequency);
   
-  // Step 8: Calculate first-time deep clean price (recurring + $100)
-  const firstCleanPrice = recurringPrice + PRICING_CONSTANTS.FIRST_CLEAN_PREMIUM;
+  // Step 8: Calculate first-time deep clean price (recurring + premium)
+  const firstCleanPrice = recurringPrice + settings.FIRST_CLEAN_PREMIUM;
 
   // Debug logging for price breakdown
   console.log('=== Willow & Water Pricing Breakdown ===');

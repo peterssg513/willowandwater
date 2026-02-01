@@ -12,19 +12,39 @@ import Contact from './components/Contact';
 import ReferralProgram from './components/ReferralProgram';
 import BookingSuccess from './components/BookingSuccess';
 import CityLanding from './components/CityLanding';
+import ServiceAreasPage from './components/ServiceAreasPage';
+import BlogList from './components/BlogList';
+import BlogPost from './components/BlogPost';
 import StickyMobileCTA from './components/StickyMobileCTA';
 import ExitIntentPopup from './components/ExitIntentPopup';
 import AbandonedBookingRecovery from './components/AbandonedBookingRecovery';
 
-// Service area cities for footer
-const serviceAreas = [
-  { name: 'St. Charles', slug: 'st-charles' },
-  { name: 'Geneva', slug: 'geneva' },
-  { name: 'Batavia', slug: 'batavia' },
-  { name: 'Wayne', slug: 'wayne' },
-  { name: 'Campton Hills', slug: 'campton-hills' },
-  { name: 'Elburn', slug: 'elburn' },
-];
+// Service area data
+import { SERVICE_AREA_LIST, getPrimaryServiceAreas, getServiceAreasByTier } from './data/serviceAreas';
+
+// Admin imports
+import AdminLayout from './admin/AdminLayout';
+import AdminLogin from './admin/AdminLogin';
+import Dashboard from './admin/Dashboard';
+import Bookings from './admin/Bookings';
+import Cleaners from './admin/Cleaners';
+import Schedule from './admin/Schedule';
+import Revenue from './admin/Revenue';
+import Recurring from './admin/Recurring';
+import AdminAnalytics from './admin/Analytics';
+import Customers from './admin/Customers';
+import Expenses from './admin/Expenses';
+import Reports from './admin/Reports';
+import Checklists from './admin/Checklists';
+import Communications from './admin/Communications';
+import ActivityLog from './admin/ActivityLog';
+import Settings from './admin/Settings';
+import Inventory from './admin/Inventory';
+import Pricing from './admin/Pricing';
+
+// Get service areas for footer (primary + some secondary)
+const primaryAreas = getPrimaryServiceAreas();
+const secondaryAreas = getServiceAreasByTier('secondary').slice(0, 3);
 
 // Home page component
 function HomePage() {
@@ -120,7 +140,7 @@ function HomePage() {
             <div>
               <h4 className="font-inter font-semibold text-bone mb-3">Service Areas</h4>
               <ul className="space-y-2">
-                {serviceAreas.map((area) => (
+                {primaryAreas.map((area) => (
                   <li key={area.slug}>
                     <Link 
                       to={`/${area.slug}`}
@@ -130,6 +150,24 @@ function HomePage() {
                     </Link>
                   </li>
                 ))}
+                {secondaryAreas.map((area) => (
+                  <li key={area.slug}>
+                    <Link 
+                      to={`/${area.slug}`}
+                      className="text-bone/60 hover:text-bone font-inter text-sm transition-colors"
+                    >
+                      {area.name}, IL
+                    </Link>
+                  </li>
+                ))}
+                <li>
+                  <Link 
+                    to="/service-areas"
+                    className="text-sage hover:underline font-inter text-sm transition-colors"
+                  >
+                    View all areas →
+                  </Link>
+                </li>
               </ul>
             </div>
             
@@ -172,13 +210,46 @@ function App() {
 
   return (
     <Routes>
+      {/* Public Routes */}
       <Route path="/" element={<HomePage />} />
-      <Route path="/st-charles" element={<CityLanding citySlug="st-charles" />} />
-      <Route path="/geneva" element={<CityLanding citySlug="geneva" />} />
-      <Route path="/batavia" element={<CityLanding citySlug="batavia" />} />
-      <Route path="/wayne" element={<CityLanding citySlug="wayne" />} />
-      <Route path="/campton-hills" element={<CityLanding citySlug="campton-hills" />} />
-      <Route path="/elburn" element={<CityLanding citySlug="elburn" />} />
+      
+      {/* Service Areas Overview Page */}
+      <Route path="/service-areas" element={<ServiceAreasPage />} />
+      
+      {/* Blog Routes */}
+      <Route path="/blog" element={<BlogList />} />
+      <Route path="/blog/:slug" element={<BlogPost />} />
+      
+      {/* City Landing Pages - All Fox Valley Service Areas */}
+      {SERVICE_AREA_LIST.map((area) => (
+        <Route 
+          key={area.slug} 
+          path={`/${area.slug}`} 
+          element={<CityLanding citySlug={area.slug} />} 
+        />
+      ))}
+      
+      {/* Admin Routes */}
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="bookings" element={<Bookings />} />
+        <Route path="schedule" element={<Schedule />} />
+        <Route path="customers" element={<Customers />} />
+        <Route path="cleaners" element={<Cleaners />} />
+        <Route path="revenue" element={<Revenue />} />
+        <Route path="expenses" element={<Expenses />} />
+        <Route path="recurring" element={<Recurring />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="checklists" element={<Checklists />} />
+        <Route path="inventory" element={<Inventory />} />
+        <Route path="pricing" element={<Pricing />} />
+        <Route path="communications" element={<Communications />} />
+        <Route path="activity" element={<ActivityLog />} />
+        <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
+      
       {/* Fallback to home for unknown routes */}
       <Route path="*" element={<HomePage />} />
     </Routes>
