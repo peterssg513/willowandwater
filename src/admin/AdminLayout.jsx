@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   Leaf,
-  ClipboardList
+  ClipboardList,
+  Calculator
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -77,6 +78,7 @@ const AdminLayout = () => {
   // Owner-only items
   const ownerItems = [
     { path: '/admin/payments', icon: DollarSign, label: 'Payments' },
+    { path: '/admin/pricing', icon: Calculator, label: 'Pricing Engine' },
     { path: '/admin/settings', icon: Settings, label: 'Settings' },
   ];
 

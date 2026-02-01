@@ -30,6 +30,7 @@ import Cleaners from './admin/Cleaners';
 import Inventory from './admin/Inventory';
 import Communications from './admin/Communications';
 import Payments from './admin/Payments';
+import Pricing from './admin/Pricing';
 import Settings from './admin/Settings';
 import Checklists from './admin/Checklists';
 
@@ -238,6 +239,7 @@ function App() {
         <Route path="inventory" element={<Inventory />} />
         <Route path="communications" element={<Communications />} />
         <Route path="payments" element={<Payments />} />
+        <Route path="pricing" element={<Pricing />} />
         <Route path="settings" element={<Settings />} />
         <Route path="checklists" element={<Checklists />} />
       </Route>
