@@ -18,6 +18,7 @@ import BlogPost from './components/BlogPost';
 import StickyMobileCTA from './components/StickyMobileCTA';
 import FeedbackPage from './pages/FeedbackPage';
 import CleanerChecklist from './pages/CleanerChecklist';
+import LeadCaptureLanding from './pages/LeadCaptureLanding';
 
 // Admin imports
 import AdminLogin from './admin/AdminLogin';
@@ -33,6 +34,7 @@ import Payments from './admin/Payments';
 import Pricing from './admin/Pricing';
 import Settings from './admin/Settings';
 import Checklists from './admin/Checklists';
+import Leads from './admin/Leads';
 
 // Service area data
 import { SERVICE_AREA_LIST, getPrimaryServiceAreas, getServiceAreasByTier } from './data/serviceAreas';
@@ -219,6 +221,9 @@ function App() {
       {/* Cleaner Checklist (magic link) */}
       <Route path="/checklist" element={<CleanerChecklist />} />
       
+      {/* Lead Capture Landing Page (for ads) */}
+      <Route path="/get-quote" element={<LeadCaptureLanding />} />
+      
       {/* City Landing Pages - All Fox Valley Service Areas */}
       {SERVICE_AREA_LIST.map((area) => (
         <Route 
@@ -242,6 +247,7 @@ function App() {
         <Route path="pricing" element={<Pricing />} />
         <Route path="settings" element={<Settings />} />
         <Route path="checklists" element={<Checklists />} />
+        <Route path="leads" element={<Leads />} />
       </Route>
       
       {/* Fallback to home for unknown routes */}
