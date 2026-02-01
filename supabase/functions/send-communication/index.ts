@@ -8,7 +8,7 @@ const TWILIO_PHONE_NUMBER = Deno.env.get('TWILIO_PHONE_NUMBER')
 
 // Resend config
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'Willow & Water <hello@willowandwater.com>'
+const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'Willow & Water <scheduling@willowandwaterorganiccleaning.com>'
 
 // Supabase config
 const supabaseUrl = Deno.env.get('SUPABASE_URL') as string

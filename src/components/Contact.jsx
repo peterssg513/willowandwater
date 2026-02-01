@@ -71,14 +71,14 @@ const Contact = () => {
               </a>
 
               <a 
-                href="mailto:hello@willowandwater.com"
+                href="mailto:hello@willowandwaterorganiccleaning.com"
                 className="flex items-center gap-4 p-3 rounded-xl hover:bg-sage/5 transition-colors group"
               >
                 <div className="w-12 h-12 bg-sage/10 rounded-xl flex items-center justify-center group-hover:bg-sage group-hover:text-bone transition-colors">
                   <Mail className="w-5 h-5 text-sage group-hover:text-bone" />
                 </div>
                 <div>
-                  <p className="font-inter font-semibold text-charcoal">hello@willowandwater.com</p>
+                  <p className="font-inter font-semibold text-charcoal">hello@willowandwaterorganiccleaning.com</p>
                   <p className="text-sm text-charcoal/60 font-inter">Email us anytime</p>
                 </div>
               </a>

@@ -165,14 +165,14 @@ curl -X POST 'https://YOUR_PROJECT.supabase.co/functions/v1/send-weekly-schedule
 
 ### Mark cleaner as unavailable
 ```sql
-UPDATE cleaners SET status = 'on_leave' WHERE email = 'sarah@willowandwater.com';
+UPDATE cleaners SET status = 'on_leave' WHERE email = 'sarah@willowandwaterorganiccleaning.com';
 ```
 
 ### Change available days
 ```sql
 UPDATE cleaners 
 SET available_days = ARRAY['monday', 'wednesday', 'friday'] 
-WHERE email = 'maria@willowandwater.com';
+WHERE email = 'maria@willowandwaterorganiccleaning.com';
 ```
 
 ### View cleaner workload

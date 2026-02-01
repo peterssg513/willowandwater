@@ -36,7 +36,7 @@ const SERVICE_AREAS = [
   { slug: 'wheaton', name: 'Wheaton', priority: 0.6 },
 ];
 
-const BASE_URL = 'https://willowandwater.com';
+const BASE_URL = 'https://www.willowandwaterorganiccleaning.com';
 const today = new Date().toISOString().split('T')[0];
 
 const generateSitemap = () => {

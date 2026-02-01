@@ -52,7 +52,7 @@ ON page_views(session_id, created_at DESC);
 -- OR manually create a user:
 --
 -- SELECT supabase.auth.create_user(
---   '{"email": "admin@willowandwater.com", "password": "your-secure-password", "email_confirm": true}'::jsonb
+--   '{"email": "admin@willowandwaterorganiccleaning.com", "password": "your-secure-password", "email_confirm": true}'::jsonb
 -- );
 
 -- =====================================================

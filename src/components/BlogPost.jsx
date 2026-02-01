@@ -235,26 +235,26 @@ const BlogPost = () => {
       "@type": "BlogPosting",
       "headline": post.title,
       "description": post.excerpt,
-      "image": post.image || "https://willowandwater.com/og-image.jpg",
-      "url": `https://willowandwater.com/blog/${post.slug}`,
+      "image": post.image || "https://www.willowandwaterorganiccleaning.com/og-image.jpg",
+      "url": `https://www.willowandwaterorganiccleaning.com/blog/${post.slug}`,
       "datePublished": post.publishDate,
       "dateModified": post.publishDate,
       "author": {
         "@type": "Organization",
         "name": post.author,
-        "url": "https://willowandwater.com"
+        "url": "https://www.willowandwaterorganiccleaning.com"
       },
       "publisher": {
         "@type": "Organization",
         "name": "Willow & Water Organic Cleaning",
         "logo": {
           "@type": "ImageObject",
-          "url": "https://willowandwater.com/logo.png"
+          "url": "https://www.willowandwaterorganiccleaning.com/logo.png"
         }
       },
       "mainEntityOfPage": {
         "@type": "WebPage",
-        "@id": `https://willowandwater.com/blog/${post.slug}`
+        "@id": `https://www.willowandwaterorganiccleaning.com/blog/${post.slug}`
       },
       "keywords": post.keywords?.join(', ')
     };
@@ -284,7 +284,7 @@ const BlogPost = () => {
     });
   };
 
-  const shareUrl = `https://willowandwater.com/blog/${post.slug}`;
+  const shareUrl = `https://www.willowandwaterorganiccleaning.com/blog/${post.slug}`;
   const shareTitle = post.title;
 
   return (
@@ -507,7 +507,7 @@ const BlogPost = () => {
               <h4 className="font-inter font-semibold text-bone mb-3">Contact</h4>
               <ul className="space-y-2 text-bone/60 font-inter text-sm">
                 <li><a href="tel:6302670096" className="hover:text-bone">(630) 267-0096</a></li>
-                <li><a href="mailto:hello@willowandwater.com" className="hover:text-bone">hello@willowandwater.com</a></li>
+                <li><a href="mailto:hello@willowandwaterorganiccleaning.com" className="hover:text-bone">hello@willowandwaterorganiccleaning.com</a></li>
               </ul>
             </div>
           </div>

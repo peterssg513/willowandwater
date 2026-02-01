@@ -123,7 +123,7 @@ serve(async (req) => {
         }
       })
 
-      responseMessage = `Thanks for your message! For assistance, please call us at (630) 267-0096 or visit willowandwater.com. 🌿`
+      responseMessage = `Thanks for your message! For assistance, please call us at (630) 267-0096 or visit willowandwaterorganiccleaning.com. 🌿`
     }
 
     // Log incoming message

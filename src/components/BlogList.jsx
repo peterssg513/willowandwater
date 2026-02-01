@@ -40,17 +40,17 @@ const BlogList = () => {
       "@type": "Blog",
       "name": "Willow & Water Blog",
       "description": "Organic cleaning tips, eco-friendly living guides, and home care advice",
-      "url": "https://willowandwater.com/blog",
+      "url": "https://www.willowandwaterorganiccleaning.com/blog",
       "publisher": {
         "@type": "Organization",
         "name": "Willow & Water Organic Cleaning",
-        "url": "https://willowandwater.com"
+        "url": "https://www.willowandwaterorganiccleaning.com"
       },
       "blogPost": allPosts.slice(0, 10).map(post => ({
         "@type": "BlogPosting",
         "headline": post.title,
         "description": post.excerpt,
-        "url": `https://willowandwater.com/blog/${post.slug}`,
+        "url": `https://www.willowandwaterorganiccleaning.com/blog/${post.slug}`,
         "datePublished": post.publishDate,
         "author": {
           "@type": "Organization",
@@ -300,7 +300,7 @@ const BlogList = () => {
               <h4 className="font-inter font-semibold text-bone mb-3">Contact</h4>
               <ul className="space-y-2 text-bone/60 font-inter text-sm">
                 <li><a href="tel:6302670096" className="hover:text-bone">(630) 267-0096</a></li>
-                <li><a href="mailto:hello@willowandwater.com" className="hover:text-bone">hello@willowandwater.com</a></li>
+                <li><a href="mailto:hello@willowandwaterorganiccleaning.com" className="hover:text-bone">hello@willowandwaterorganiccleaning.com</a></li>
               </ul>
             </div>
           </div>

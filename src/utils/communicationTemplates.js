@@ -47,7 +47,7 @@ export const SMS_TEMPLATES = {
 
   // Recurring Upsell (3 days after one-time clean)
   recurring_upsell: ({ customerName, discountPercent }) =>
-    `Hi ${customerName}! Loved your Willow & Water clean? Get ${discountPercent}% off when you switch to recurring service! Reply YES to learn more or book at willowandwater.com 🌿`,
+    `Hi ${customerName}! Loved your Willow & Water clean? Get ${discountPercent}% off when you switch to recurring service! Reply YES to learn more or book at willowandwaterorganiccleaning.com 🌿`,
 
   // Referral Credit Earned
   referral_credit: ({ customerName, creditAmount, referredName }) =>
@@ -55,7 +55,7 @@ export const SMS_TEMPLATES = {
 
   // Subscription Paused
   subscription_paused: ({ customerName }) =>
-    `Hi ${customerName}, your Willow & Water subscription has been paused. You can reactivate anytime at willowandwater.com or reply to this message. We'll be here when you need us! 🌿`,
+    `Hi ${customerName}, your Willow & Water subscription has been paused. You can reactivate anytime at willowandwaterorganiccleaning.com or reply to this message. We'll be here when you need us! 🌿`,
 
   // Cancellation Confirmation
   cancellation_confirmed: ({ customerName, date, fee }) =>
@@ -151,7 +151,7 @@ export const EMAIL_TEMPLATES = {
 
         <!-- CTA -->
         <div style="text-align: center; margin-bottom: 30px;">
-          <a href="https://willowandwater.com" style="background-color: #71797E; color: white; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600; display: inline-block;">
+          <a href="https://www.willowandwaterorganiccleaning.com" style="background-color: #71797E; color: white; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600; display: inline-block;">
             Manage Your Booking
           </a>
         </div>

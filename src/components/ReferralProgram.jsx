@@ -7,7 +7,7 @@ import { Gift, Copy, Check, Share2, MessageCircle, Mail } from 'lucide-react';
 const ReferralProgram = () => {
   const [copied, setCopied] = useState(false);
   const referralCode = 'FRIEND25';
-  const referralLink = 'https://willowandwater.vercel.app/?ref=FRIEND25';
+  const referralLink = 'https://www.willowandwaterorganiccleaning.com/?ref=FRIEND25';
 
   const handleCopy = async () => {
     try {

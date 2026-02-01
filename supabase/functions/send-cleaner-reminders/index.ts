@@ -173,7 +173,7 @@ serve(async (req) => {
         const time = firstJob.scheduled_time === 'morning' ? '9am' : '1pm'
         
         const smsContent = cleanerJobs.length === 1
-          ? `Good morning ${cleaner.name.split(' ')[0]}! Your cleaning today is at ${time} - ${customer?.name}, ${customer?.address}. Customer phone: ${customer?.phone || 'N/A'}. Checklist: willowandwater.com/checklist?token=${magicToken}&job=${firstJob.id}`
+          ? `Good morning ${cleaner.name.split(' ')[0]}! Your cleaning today is at ${time} - ${customer?.name}, ${customer?.address}. Customer phone: ${customer?.phone || 'N/A'}. Checklist: willowandwaterorganiccleaning.com/checklist?token=${magicToken}&job=${firstJob.id}`
           : `Good morning ${cleaner.name.split(' ')[0]}! You have ${cleanerJobs.length} cleanings today starting at ${time}. First stop: ${customer?.name}, ${customer?.address}. Check your email for full details.`
 
         if (cleaner.phone) {
@@ -266,7 +266,7 @@ function generateCleanerReminderEmail(
             </p>
           </div>
         ` : ''}
-        <a href="https://willowandwater.com/checklist?token=${magicToken}&job=${job.id}" 
+        <a href="https://www.willowandwaterorganiccleaning.com/checklist?token=${magicToken}&job=${job.id}" 
            style="display: inline-block; margin-top: 12px; background: #71797E; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 14px;">
           View Checklist
         </a>

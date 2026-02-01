@@ -26,7 +26,7 @@ const CityLanding = ({ citySlug }) => {
       // Update canonical
       const canonical = document.querySelector('link[rel="canonical"]');
       if (canonical) {
-        canonical.setAttribute('href', `https://willowandwater.com/${citySlug}`);
+        canonical.setAttribute('href', `https://www.willowandwaterorganiccleaning.com/${citySlug}`);
       }
 
       // Add/update keywords meta
@@ -45,13 +45,13 @@ const CityLanding = ({ citySlug }) => {
       const citySchema = {
         "@context": "https://schema.org",
         "@type": "LocalBusiness",
-        "@id": `https://willowandwater.com/${citySlug}#business`,
+        "@id": `https://www.willowandwaterorganiccleaning.com/${citySlug}#business`,
         "name": `Willow & Water Organic Cleaning - ${city.name}`,
         "description": city.description,
-        "url": `https://willowandwater.com/${citySlug}`,
+        "url": `https://www.willowandwaterorganiccleaning.com/${citySlug}`,
         "telephone": "+1-630-267-0096",
-        "email": "hello@willowandwater.com",
-        "image": "https://willowandwater.com/og-image.jpg",
+        "email": "hello@willowandwaterorganiccleaning.com",
+        "image": "https://www.willowandwaterorganiccleaning.com/og-image.jpg",
         "address": {
           "@type": "PostalAddress",
           "addressLocality": city.name,
@@ -146,19 +146,19 @@ const CityLanding = ({ citySlug }) => {
             "@type": "ListItem",
             "position": 1,
             "name": "Home",
-            "item": "https://willowandwater.com"
+            "item": "https://www.willowandwaterorganiccleaning.com"
           },
           {
             "@type": "ListItem",
             "position": 2,
             "name": "Service Areas",
-            "item": "https://willowandwater.com/service-areas"
+            "item": "https://www.willowandwaterorganiccleaning.com/service-areas"
           },
           {
             "@type": "ListItem",
             "position": 3,
             "name": `${city.name}, IL`,
-            "item": `https://willowandwater.com/${citySlug}`
+            "item": `https://www.willowandwaterorganiccleaning.com/${citySlug}`
           }
         ]
       };
@@ -535,8 +535,8 @@ const CityLanding = ({ citySlug }) => {
                   </a>
                 </li>
                 <li>
-                  <a href="mailto:hello@willowandwater.com" className="hover:text-bone transition-colors">
-                    hello@willowandwater.com
+                  <a href="mailto:hello@willowandwaterorganiccleaning.com" className="hover:text-bone transition-colors">
+                    hello@willowandwaterorganiccleaning.com
                   </a>
                 </li>
               </ul>

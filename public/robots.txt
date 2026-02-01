@@ -1,11 +1,11 @@
 # Willow & Water Organic Cleaning
-# https://willowandwater.com
+# https://www.willowandwaterorganiccleaning.com
 
 User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://willowandwater.com/sitemap.xml
+Sitemap: https://www.willowandwaterorganiccleaning.com/sitemap.xml
 
 # Disallow admin pages from indexing
 Disallow: /admin

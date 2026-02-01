@@ -188,7 +188,7 @@ async function sendWeeklyScheduleEmail(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Willow & Water <schedule@willowandwater.com>',
+      from: 'Willow & Water <scheduling@willowandwaterorganiccleaning.com>',
       to: cleaner.email,
       subject: `📋 Your Schedule for ${weekRange} (${totalCleanings} cleaning${totalCleanings !== 1 ? 's' : ''})`,
       html: `

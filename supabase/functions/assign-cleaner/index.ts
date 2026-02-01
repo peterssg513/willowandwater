@@ -197,7 +197,7 @@ async function sendCleanerNotification(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Willow & Water <assignments@willowandwater.com>',
+      from: 'Willow & Water <scheduling@willowandwaterorganiccleaning.com>',
       to: cleaner.email,
       subject: `🧹 New Cleaning Assignment - ${formattedDate}`,
       html: `

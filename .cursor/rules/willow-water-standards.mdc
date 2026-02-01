@@ -5,6 +5,17 @@ alwaysApply: true
 
 # Willow & Water Project Standards
 
+## Website Domain
+
+**Production URL**: `www.willowandwaterorganiccleaning.com`
+
+Always use this domain in:
+- Email templates
+- SMS messages
+- Referral links
+- Sitemap and SEO
+- Any customer-facing URLs
+
 ## Tech Stack
 
 - **Framework**: React with Vite

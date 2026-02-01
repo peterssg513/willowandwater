@@ -33,7 +33,7 @@ To exit demo mode and use production data, add your Supabase credentials to `.en
 3. Navigate to **Authentication** → **Users**
 4. Click **Add User** → **Create New User**
 5. Enter:
-   - Email: `admin@willowandwater.com` (or your preferred email)
+   - Email: `admin@willowandwaterorganiccleaning.com` (or your preferred email)
    - Password: Choose a strong password
    - Check "Auto Confirm User"
 6. Click **Create User**
@@ -61,7 +61,7 @@ INSERT INTO auth.users (
   gen_random_uuid(),
   'authenticated',
   'authenticated',
-  'admin@willowandwater.com',
+  'admin@willowandwaterorganiccleaning.com',
   crypt('your-secure-password', gen_salt('bf')),
   NOW(),
   NOW(),

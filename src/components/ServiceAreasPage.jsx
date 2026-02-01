@@ -30,7 +30,7 @@ const ServiceAreasPage = () => {
       "@type": "LocalBusiness",
       "name": "Willow & Water Organic Cleaning",
       "description": "Professional organic house cleaning serving the Fox Valley region of Illinois",
-      "url": "https://willowandwater.com",
+      "url": "https://www.willowandwaterorganiccleaning.com",
       "telephone": "+1-630-267-0096",
       "areaServed": allAreas.map(area => ({
         "@type": "City",
@@ -366,7 +366,7 @@ const ServiceAreasPage = () => {
                   <a href="tel:6302670096" className="hover:text-bone">(630) 267-0096</a>
                 </li>
                 <li>
-                  <a href="mailto:hello@willowandwater.com" className="hover:text-bone">hello@willowandwater.com</a>
+                  <a href="mailto:hello@willowandwaterorganiccleaning.com" className="hover:text-bone">hello@willowandwaterorganiccleaning.com</a>
                 </li>
               </ul>
             </div>

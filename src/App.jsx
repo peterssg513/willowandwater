@@ -173,8 +173,8 @@ function HomePage() {
                   </a>
                 </li>
                 <li>
-                  <a href="mailto:hello@willowandwater.com" className="hover:text-bone transition-colors">
-                    hello@willowandwater.com
+                  <a href="mailto:hello@willowandwaterorganiccleaning.com" className="hover:text-bone transition-colors">
+                    hello@willowandwaterorganiccleaning.com
                   </a>
                 </li>
               </ul>

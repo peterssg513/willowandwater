@@ -72,7 +72,7 @@ serve(async (req) => {
     })
 
     // Build feedback URL (for email)
-    const feedbackUrl = `https://willowandwater.com/feedback?job=${jobId}`
+    const feedbackUrl = `https://www.willowandwaterorganiccleaning.com/feedback?job=${jobId}`
 
     // SMS content
     const smsContent = `Hi ${customer.name.split(' ')[0]}! Your home is sparkling clean! ✨ We hope you love it. We'd really appreciate your feedback - reply with a rating 1-5.`

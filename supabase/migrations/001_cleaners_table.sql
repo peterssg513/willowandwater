@@ -57,9 +57,9 @@ CREATE TRIGGER update_cleaners_updated_at
 -- Sample cleaners (you can modify these)
 -- =====================================================
 INSERT INTO cleaners (name, email, phone, status, available_days) VALUES
-    ('Sarah Johnson', 'sarah@willowandwater.com', '630-555-0101', 'active', ARRAY['monday', 'tuesday', 'wednesday', 'thursday', 'friday']),
-    ('Maria Garcia', 'maria@willowandwater.com', '630-555-0102', 'active', ARRAY['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']),
-    ('Jennifer Lee', 'jennifer@willowandwater.com', '630-555-0103', 'active', ARRAY['tuesday', 'wednesday', 'thursday', 'friday', 'saturday'])
+    ('Sarah Johnson', 'sarah@willowandwaterorganiccleaning.com', '630-555-0101', 'active', ARRAY['monday', 'tuesday', 'wednesday', 'thursday', 'friday']),
+    ('Maria Garcia', 'maria@willowandwaterorganiccleaning.com', '630-555-0102', 'active', ARRAY['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']),
+    ('Jennifer Lee', 'jennifer@willowandwaterorganiccleaning.com', '630-555-0103', 'active', ARRAY['tuesday', 'wednesday', 'thursday', 'friday', 'saturday'])
 ON CONFLICT (email) DO NOTHING;
 
 -- =====================================================
