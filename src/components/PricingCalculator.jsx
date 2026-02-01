@@ -1,18 +1,14 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Leaf, Minus, Plus, Shield, Calendar, Clock, Users, Sparkles, Check } from 'lucide-react';
+import { Leaf, Minus, Plus, Shield, Calendar, Clock, Users } from 'lucide-react';
 import { 
   calculateCleaningPrice, 
   formatPrice, 
   formatDuration,
   getFrequencyBadge,
   getCleanerCount,
-  fetchCostSettings,
-  getCostSettings
+  fetchCostSettings
 } from '../utils/profitPricingLogic';
 import { BookingFlow } from './booking';
-
-// Organic cleaning add-on price (fetched from settings or default)
-const ORGANIC_ADDON_DEFAULT = 20;
 
 const PricingCalculator = () => {
   // Form state (defaults to common Fox Valley home size)
@@ -20,45 +16,25 @@ const PricingCalculator = () => {
   const [bedrooms, setBedrooms] = useState(4);
   const [bathrooms, setBathrooms] = useState(2.5);
   const [frequency, setFrequency] = useState('biweekly');
-  const [organicCleaning, setOrganicCleaning] = useState(true); // Default to ON (it's our brand!)
   
   // Modal state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   
   // Settings state - triggers re-render when settings load from DB
   const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const [organicAddonPrice, setOrganicAddonPrice] = useState(ORGANIC_ADDON_DEFAULT);
 
   // Fetch fresh settings from database on mount
   useEffect(() => {
     fetchCostSettings(true).then(() => {
       setSettingsLoaded(true);
-      const settings = getCostSettings();
-      if (settings.organicCleaningAddon) {
-        setOrganicAddonPrice(settings.organicCleaningAddon);
-      }
     });
   }, []);
 
-  // Build addons array based on selections
-  const selectedAddons = useMemo(() => {
-    const addons = [];
-    if (organicCleaning) {
-      addons.push({
-        id: 'organic-cleaning',
-        name: 'Organic Cleaning',
-        price: organicAddonPrice,
-        duration_minutes: 0, // No extra time
-      });
-    }
-    return addons;
-  }, [organicCleaning, organicAddonPrice]);
-
   // Calculate price whenever inputs change (or settings load)
   const pricing = useMemo(() => {
-    return calculateCleaningPrice({ sqft, bedrooms, bathrooms, frequency, addons: selectedAddons });
+    return calculateCleaningPrice({ sqft, bedrooms, bathrooms, frequency });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sqft, bedrooms, bathrooms, frequency, selectedAddons, settingsLoaded]);
+  }, [sqft, bedrooms, bathrooms, frequency, settingsLoaded]);
 
   // Handle opening booking flow
   const handleOpenBooking = () => {
@@ -198,43 +174,6 @@ const PricingCalculator = () => {
               </div>
             </div>
 
-            {/* Organic Cleaning Add-on */}
-            <div>
-              <button
-                onClick={() => setOrganicCleaning(!organicCleaning)}
-                className={`w-full flex items-center justify-between p-4 rounded-xl border-2 
-                  transition-all duration-200
-                  ${organicCleaning
-                    ? 'border-sage bg-gradient-to-r from-sage/10 to-green-50'
-                    : 'border-charcoal/10 hover:border-sage/50 bg-white'
-                  }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors
-                    ${organicCleaning ? 'bg-sage border-sage' : 'border-charcoal/20'}`}
-                  >
-                    {organicCleaning && <Check className="w-4 h-4 text-white" />}
-                  </div>
-                  <div className="text-left">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-sage" />
-                      <span className="font-inter font-semibold text-charcoal">
-                        Organic Cleaning
-                      </span>
-                      <span className="bg-green-100 text-green-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                        Recommended
-                      </span>
-                    </div>
-                    <p className="text-xs text-charcoal/60 mt-1">
-                      100% non-toxic, plant-based products safe for kids & pets
-                    </p>
-                  </div>
-                </div>
-                <span className="font-inter font-semibold text-sage">
-                  +{formatPrice(organicAddonPrice)}
-                </span>
-              </button>
-            </div>
           </div>
 
           {/* Divider */}
@@ -266,16 +205,10 @@ const PricingCalculator = () => {
                   <span className="bg-sage text-bone text-xs font-inter font-semibold px-2 py-1 rounded-full">
                     FIRST CLEAN
                   </span>
-                  {organicCleaning && (
-                    <span className="bg-green-100 text-green-700 text-xs font-inter font-medium px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Leaf className="w-3 h-3" />
-                      Organic
-                    </span>
-                  )}
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
                   <span className="text-3xl sm:text-4xl font-playfair font-semibold text-charcoal">
-                    {formatPrice(pricing.firstCleanTotal)}
+                    {formatPrice(pricing.firstCleanPrice)}
                   </span>
                 </div>
                 <p className="text-charcoal/60 font-inter text-sm">
@@ -290,16 +223,10 @@ const PricingCalculator = () => {
                     <span className="bg-charcoal/10 text-charcoal text-xs font-inter font-semibold px-2 py-1 rounded-full uppercase">
                       {frequency} After
                     </span>
-                    {organicCleaning && (
-                      <span className="bg-green-100 text-green-700 text-xs font-inter font-medium px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Leaf className="w-3 h-3" />
-                        Organic
-                      </span>
-                    )}
                   </div>
                   <div className="flex items-baseline gap-1 mb-1">
                     <span className="text-3xl sm:text-4xl font-playfair font-semibold text-charcoal">
-                      {formatPrice(pricing.recurringPrice + pricing.addonsPrice)}
+                      {formatPrice(pricing.recurringPrice)}
                     </span>
                     <span className="text-charcoal/60 font-inter text-sm">/visit</span>
                   </div>
@@ -364,7 +291,7 @@ const PricingCalculator = () => {
       <BookingFlow 
         isOpen={isBookingOpen}
         onClose={() => setIsBookingOpen(false)}
-        initialData={{ sqft, bedrooms, bathrooms, frequency, addons: selectedAddons }}
+        initialData={{ sqft, bedrooms, bathrooms, frequency }}
       />
     </section>
   );

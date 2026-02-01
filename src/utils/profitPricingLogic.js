@@ -28,6 +28,7 @@ const DEFAULT_COST_SETTINGS = {
   // Weekly costs per cleaner
   weekly_supplies_cost: 24.50,
   weekly_gas_cost: 50.00,
+  weekly_stipend_per_cleaner: 0,
   expected_jobs_per_week: 9,
   
   // Equipment amortization
@@ -122,7 +123,10 @@ export async function fetchCostSettings(forceRefresh = false) {
  * Build settings object with computed values
  */
 function buildSettingsObject(raw) {
-  const weeklyTotal = (raw.weekly_supplies_cost || 24.50) + (raw.weekly_gas_cost || 50);
+  const weeklySupplies = raw.weekly_supplies_cost || 24.50;
+  const weeklyGas = raw.weekly_gas_cost || 50;
+  const weeklyStipend = raw.weekly_stipend_per_cleaner || 0;
+  const weeklyTotal = weeklySupplies + weeklyGas + weeklyStipend;
   const expectedJobsPerWeek = raw.expected_jobs_per_week || 9;
   const expectedJobsPerYear = raw.expected_jobs_per_year || 450;
   const annualEquipment = raw.annual_equipment_cost || 750;
@@ -141,8 +145,9 @@ function buildSettingsObject(raw) {
     soloCleanerMaxSqft: raw.solo_cleaner_max_sqft || 1999,
     
     // Weekly costs
-    weeklySuppliesCost: raw.weekly_supplies_cost || 24.50,
-    weeklyGasCost: raw.weekly_gas_cost || 50,
+    weeklySuppliesCost: weeklySupplies,
+    weeklyGasCost: weeklyGas,
+    weeklyStipendPerCleaner: weeklyStipend,
     weeklyTotalPerCleaner: weeklyTotal,
     expectedJobsPerWeek: expectedJobsPerWeek,
     perJobSuppliesGas: round2(weeklyTotal / expectedJobsPerWeek),

@@ -95,6 +95,7 @@ const SETTINGS_BY_CATEGORY = {
   supplies: [
     { key: 'weekly_supplies_cost', label: 'Weekly Supplies', description: 'Branch Basics per cleaner per week ($)', type: 'currency' },
     { key: 'weekly_gas_cost', label: 'Weekly Gas', description: 'Gas allowance per cleaner per week ($)', type: 'currency' },
+    { key: 'weekly_stipend_per_cleaner', label: 'Weekly Stipend', description: 'Stipend per cleaner per week ($)', type: 'currency' },
     { key: 'expected_jobs_per_week', label: 'Jobs Per Week', description: 'Expected jobs per cleaner per week', type: 'number' },
   ],
   equipment: [
@@ -340,7 +341,8 @@ const Pricing = () => {
     
     const weeklySupplies = getVal('weekly_supplies_cost', 24.5);
     const weeklyGas = getVal('weekly_gas_cost', 50);
-    const weeklyTotal = weeklySupplies + weeklyGas;
+    const weeklyStipend = getVal('weekly_stipend_per_cleaner', 0);
+    const weeklyTotal = weeklySupplies + weeklyGas + weeklyStipend;
     const jobsPerWeek = getVal('expected_jobs_per_week', 9);
     
     const annualEquip = getVal('annual_equipment_cost', 750);
@@ -365,6 +367,7 @@ const Pricing = () => {
       // Supplies & Gas
       weeklySuppliesCost: weeklySupplies,
       weeklyGasCost: weeklyGas,
+      weeklyStipendPerCleaner: weeklyStipend,
       weeklyTotalPerCleaner: weeklyTotal,
       expectedJobsPerWeek: jobsPerWeek,
       perJobSuppliesGas: weeklyTotal / jobsPerWeek,
