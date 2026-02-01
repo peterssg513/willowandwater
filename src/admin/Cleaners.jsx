@@ -13,7 +13,10 @@ import {
   CalendarOff,
   Star,
   AlertTriangle,
-  X
+  X,
+  Send,
+  Loader2,
+  CheckCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { formatDateForDB } from '../utils/scheduling';
@@ -30,10 +33,197 @@ const Cleaners = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPTOModal, setShowPTOModal] = useState(false);
   const [selectedCleaner, setSelectedCleaner] = useState(null);
+  const [sendingSchedules, setSendingSchedules] = useState(false);
+  const [schedulesSent, setSchedulesSent] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Send weekly schedule emails to all active cleaners
+  const sendWeeklySchedules = async () => {
+    setSendingSchedules(true);
+    setSchedulesSent(false);
+    
+    try {
+      // Get next week's date range
+      const today = new Date();
+      const nextMonday = new Date(today);
+      nextMonday.setDate(today.getDate() + ((8 - today.getDay()) % 7) || 7);
+      const nextFriday = new Date(nextMonday);
+      nextFriday.setDate(nextMonday.getDate() + 4);
+
+      const mondayStr = formatDateForDB(nextMonday);
+      const fridayStr = formatDateForDB(nextFriday);
+
+      // Get active cleaners
+      const activeCleaners = cleaners.filter(c => c.status === 'active' && c.email);
+      
+      if (activeCleaners.length === 0) {
+        alert('No active cleaners with email addresses found.');
+        return;
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const cleaner of activeCleaners) {
+        // Get cleaner's jobs for next week
+        const { data: cleanerJobs } = await supabase
+          .from('jobs')
+          .select(`
+            id,
+            scheduled_date,
+            scheduled_time,
+            customers (
+              name,
+              address,
+              city
+            )
+          `)
+          .eq('cleaner_id', cleaner.id)
+          .gte('scheduled_date', mondayStr)
+          .lte('scheduled_date', fridayStr)
+          .in('status', ['scheduled', 'confirmed'])
+          .order('scheduled_date')
+          .order('scheduled_time');
+
+        // Build schedule email HTML
+        const scheduleHtml = generateCleanerScheduleEmail(
+          cleaner.name,
+          cleanerJobs || [],
+          nextMonday,
+          nextFriday
+        );
+
+        // Send via send-communication function
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-communication`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            channel: 'email',
+            recipient_type: 'cleaner',
+            recipient_id: cleaner.id,
+            recipient_email: cleaner.email,
+            template: 'weekly_schedule',
+            subject: `Your Schedule for ${nextMonday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${nextFriday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+            content: `Weekly schedule: ${cleanerJobs?.length || 0} jobs`,
+            html_content: scheduleHtml,
+          }),
+        });
+
+        const result = await response.json();
+        if (result.results?.email?.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      }
+
+      setSchedulesSent(true);
+      setTimeout(() => setSchedulesSent(false), 3000);
+      
+      if (failCount > 0) {
+        alert(`Sent ${successCount} schedule emails. ${failCount} failed.`);
+      }
+    } catch (err) {
+      console.error('Error sending schedules:', err);
+      alert('Failed to send schedule emails. Please try again.');
+    } finally {
+      setSendingSchedules(false);
+    }
+  };
+
+  // Generate cleaner schedule email HTML
+  const generateCleanerScheduleEmail = (cleanerName, jobs, startDate, endDate) => {
+    const dateRange = `${startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+
+    // Group jobs by date
+    const jobsByDate = {};
+    for (const job of jobs) {
+      if (!jobsByDate[job.scheduled_date]) {
+        jobsByDate[job.scheduled_date] = [];
+      }
+      jobsByDate[job.scheduled_date].push(job);
+    }
+
+    const jobsHtml = Object.entries(jobsByDate).map(([date, dayJobs]) => {
+      const dateObj = new Date(date + 'T12:00:00');
+      const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+      
+      const jobsList = dayJobs.map(job => {
+        const customer = job.customers;
+        const time = job.scheduled_time === 'morning' ? '9am - 12pm' : '1pm - 5pm';
+        return `
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; font-size: 14px;">${time}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; font-size: 14px;">${customer?.name || 'N/A'}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; font-size: 14px;">${customer?.address || ''}, ${customer?.city || ''}</td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div style="margin-bottom: 20px;">
+          <h4 style="color: #71797E; margin: 0 0 10px 0; font-size: 16px;">${dayName}</h4>
+          <table cellpadding="0" cellspacing="0" width="100%" style="background: #F9F6EE; border-radius: 8px;">
+            <tr>
+              <th style="text-align: left; padding: 10px; font-size: 12px; color: #666;">Time</th>
+              <th style="text-align: left; padding: 10px; font-size: 12px; color: #666;">Customer</th>
+              <th style="text-align: left; padding: 10px; font-size: 12px; color: #666;">Address</th>
+            </tr>
+            ${jobsList}
+          </table>
+        </div>
+      `;
+    }).join('');
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #F9F6EE; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <table cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <tr>
+      <td style="background-color: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #71797E; font-size: 28px; margin: 0;">Willow & Water</h1>
+          <p style="color: #36454F; opacity: 0.6; margin: 5px 0 0 0; font-size: 14px;">Weekly Schedule</p>
+        </div>
+
+        <h2 style="color: #36454F; font-size: 20px; margin-bottom: 10px;">Hi ${cleanerName}!</h2>
+        <p style="color: #36454F; font-size: 14px; margin-bottom: 30px;">
+          Here's your schedule for <strong>${dateRange}</strong>
+        </p>
+
+        ${jobs.length > 0 ? jobsHtml : `
+          <div style="background: #F9F6EE; padding: 30px; border-radius: 12px; text-align: center;">
+            <p style="color: #666; margin: 0;">No jobs scheduled for next week.</p>
+          </div>
+        `}
+
+        <div style="background: #71797E; color: white; padding: 15px 20px; border-radius: 8px; margin-top: 30px; text-align: center;">
+          <strong>${jobs.length}</strong> job${jobs.length !== 1 ? 's' : ''} scheduled
+        </div>
+
+        <div style="text-align: center; padding-top: 30px; border-top: 1px solid #eee; margin-top: 30px;">
+          <p style="color: #36454F; opacity: 0.5; font-size: 12px; margin: 0;">
+            Questions? Contact the office at (630) 267-0096
+          </p>
+        </div>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -139,6 +329,32 @@ const Cleaners = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={sendWeeklySchedules} 
+            disabled={sendingSchedules}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-inter font-medium transition-all
+              ${schedulesSent 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-sage/10 text-sage hover:bg-sage/20'
+              } disabled:opacity-50`}
+          >
+            {sendingSchedules ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Sending...
+              </>
+            ) : schedulesSent ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                Sent!
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                Send Weekly Schedules
+              </>
+            )}
+          </button>
           <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2">
             <Plus className="w-4 h-4" />
             Add Cleaner
