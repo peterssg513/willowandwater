@@ -7,7 +7,7 @@
 
 export const SERVICE_AREAS = {
   // ============================================
-  // PRIMARY SERVICE AREAS (Tri-Cities)
+  // PRIMARY SERVICE AREAS (Tri-Cities) - MAXIMUM SEO
   // ============================================
   'st-charles': {
     name: 'St. Charles',
@@ -17,8 +17,16 @@ export const SERVICE_AREAS = {
     population: '33,000+',
     tier: 'primary',
     tagline: 'Trusted by St. Charles families since 2024',
-    description: 'Professional organic house cleaning services in St. Charles, Illinois. Our eco-friendly cleaning team serves homes throughout St. Charles, from downtown to the Fox River area.',
-    metaDescription: 'Professional organic house cleaning in St. Charles, IL. 100% non-toxic, eco-friendly products safe for kids & pets. Serving Downtown, Pheasant Run, Royal Fox & more. Instant quotes!',
+    // Enhanced descriptions for SEO
+    description: 'Professional organic house cleaning services in St. Charles, Illinois. Our eco-friendly cleaning team serves homes throughout St. Charles, from downtown to the Fox River area. We exclusively use Branch Basics non-toxic, plant-based cleaners that are 100% safe for children, pets, pregnant women, and anyone with allergies or chemical sensitivities.',
+    metaDescription: '#1 Organic House Cleaning St. Charles IL | Non-toxic Branch Basics cleaners safe for kids & pets | Serving Downtown, Pheasant Run, Royal Fox, Timber Trails | Instant online quotes | Family-owned | (630) 267-0096',
+    // H1 for the page
+    h1: 'Organic House Cleaning in St. Charles, Illinois',
+    // Geo coordinates for schema
+    geo: {
+      latitude: 41.9142,
+      longitude: -88.3087
+    },
     neighborhoods: [
       'Downtown St. Charles',
       'Fox River Shores',
@@ -29,17 +37,64 @@ export const SERVICE_AREAS = {
       'Red Gate',
       'Delnor Woods',
       'Mill Creek',
-      'Hunt Club'
+      'Hunt Club',
+      'Kingswood',
+      'Valley View',
+      'Stonegate',
+      'Fox Chase'
     ],
-    landmarks: ['Arcada Theatre', 'Pottawatomie Park', 'Fox River', 'Lincoln Park'],
+    landmarks: ['Arcada Theatre', 'Pottawatomie Park', 'Fox River', 'Lincoln Park', 'Delnor Hospital', 'St. Charles East High School', 'St. Charles North High School'],
     nearbyAreas: ['Geneva', 'Batavia', 'Wayne', 'Campton Hills', 'South Elgin'],
     facts: [
-      'Located along the beautiful Fox River',
-      'Home to many families with children and pets',
-      'Historic downtown with charming shops and restaurants',
-      'Growing demand for non-toxic cleaning solutions',
+      'Located along the beautiful Fox River in Kane County',
+      'Home to over 12,000 families with children and pets',
+      'Historic downtown with 100+ shops and restaurants',
+      'Growing demand for non-toxic, eco-friendly cleaning solutions',
+      'One of the safest cities in Illinois for families',
     ],
-    keywords: ['st charles house cleaning', 'st charles maid service', 'organic cleaning st charles il', 'green cleaning st charles'],
+    // AGGRESSIVE LONG-TAIL KEYWORDS for local SEO domination
+    keywords: [
+      'st charles house cleaning',
+      'house cleaning st charles il',
+      'st charles maid service', 
+      'maid service st charles illinois',
+      'organic cleaning st charles il',
+      'green cleaning st charles',
+      'non-toxic cleaning st charles',
+      'eco-friendly house cleaning st charles',
+      'cleaning service st charles illinois',
+      'st charles il cleaning company',
+      'best house cleaning st charles',
+      'professional cleaners st charles il',
+      'recurring cleaning st charles',
+      'deep cleaning st charles il',
+      'move in cleaning st charles',
+      'move out cleaning st charles',
+      'pet safe cleaning st charles',
+      'child safe cleaning st charles il',
+      'branch basics st charles',
+      'organic maid service st charles',
+      'housekeeping st charles il',
+      'weekly cleaning st charles',
+      'biweekly cleaning st charles il',
+      'cleaning near me st charles',
+      'house cleaners near st charles il'
+    ],
+    // City-specific FAQs for schema
+    localFaqs: [
+      {
+        question: "What areas of St. Charles do you serve?",
+        answer: "We serve all St. Charles neighborhoods including Downtown St. Charles, Fox River Shores, Pheasant Run, Timber Trails, Royal Fox, Foxfield, Red Gate, Delnor Woods, Mill Creek, Hunt Club, and surrounding areas in the 60174 and 60175 zip codes."
+      },
+      {
+        question: "How much does house cleaning cost in St. Charles?",
+        answer: "Our organic house cleaning in St. Charles starts at $115 for recurring cleanings. Pricing depends on home size, cleaning type, and frequency. Get an instant quote on our website in under 2 minutes!"
+      },
+      {
+        question: "Do you use safe products for homes near Delnor Hospital?",
+        answer: "Absolutely! We exclusively use Branch Basics non-toxic cleaners which are perfect for homes with family members who have health concerns, allergies, or chemical sensitivities. Our products are hospital-safe and doctor-recommended."
+      }
+    ]
   },
 
   'geneva': {
@@ -50,8 +105,13 @@ export const SERVICE_AREAS = {
     population: '22,000+',
     tier: 'primary',
     tagline: "Geneva's premier organic cleaning service",
-    description: 'Premium organic house cleaning in Geneva, Illinois. We bring eco-friendly, non-toxic cleaning to homes throughout Geneva\'s charming neighborhoods.',
-    metaDescription: 'Premium organic house cleaning in Geneva, IL. Non-toxic, eco-friendly cleaning for families. Serving Mill Creek, Settlers Hill, Cambridge Lakes & more. Get instant quote!',
+    description: 'Premium organic house cleaning in Geneva, Illinois. We bring eco-friendly, non-toxic cleaning to homes throughout Geneva\'s charming neighborhoods. Our Branch Basics plant-based cleaners are completely safe for children, pets, and those with allergies - perfect for Geneva families who demand the best.',
+    metaDescription: '#1 Organic House Cleaning Geneva IL | Premium non-toxic cleaning for discerning families | Branch Basics safe for kids & pets | Mill Creek, Settlers Hill, Cambridge Lakes | Instant quotes | (630) 267-0096',
+    h1: 'Premium Organic House Cleaning in Geneva, Illinois',
+    geo: {
+      latitude: 41.8875,
+      longitude: -88.3059
+    },
     neighborhoods: [
       'Downtown Geneva',
       'Mill Creek',
@@ -62,17 +122,63 @@ export const SERVICE_AREAS = {
       'Bennett Park',
       'Westfield',
       'Briargate',
-      'Triland'
+      'Triland',
+      'Wheeler Park',
+      'Geneva Commons',
+      'The Reserve',
+      'Deerpath'
     ],
-    landmarks: ['Geneva History Museum', 'Fabyan Windmill', 'Island Park', 'Third Street'],
+    landmarks: ['Geneva History Museum', 'Fabyan Windmill', 'Island Park', 'Third Street', 'Swedish Days', 'Geneva Commons', 'Peck Farm Park', 'Good Templar Park'],
     nearbyAreas: ['St. Charles', 'Batavia', 'West Chicago', 'Campton Hills'],
     facts: [
       'Known for its historic downtown and Swedish heritage',
-      'Voted one of the best places to live in Illinois',
-      'High standards for home care among residents',
-      'Perfect for families seeking chemical-free cleaning',
+      'Consistently voted one of the best places to live in Illinois',
+      'High standards for home care among discerning residents',
+      'Perfect for families seeking chemical-free, premium cleaning',
+      'Home to top-rated schools and family-friendly community',
     ],
-    keywords: ['geneva house cleaning', 'geneva il maid service', 'organic cleaning geneva illinois', 'eco-friendly cleaning geneva'],
+    keywords: [
+      'geneva house cleaning',
+      'house cleaning geneva il',
+      'geneva il maid service',
+      'maid service geneva illinois',
+      'organic cleaning geneva illinois',
+      'eco-friendly cleaning geneva',
+      'non-toxic cleaning geneva il',
+      'green house cleaning geneva',
+      'cleaning service geneva il',
+      'geneva cleaning company',
+      'best house cleaning geneva il',
+      'professional cleaners geneva illinois',
+      'recurring cleaning geneva',
+      'deep cleaning geneva il',
+      'move in cleaning geneva',
+      'move out cleaning geneva il',
+      'pet safe cleaning geneva',
+      'child safe cleaning geneva il',
+      'branch basics geneva',
+      'organic maid service geneva il',
+      'housekeeping geneva il',
+      'weekly cleaning geneva',
+      'biweekly cleaning geneva il',
+      'cleaning near me geneva',
+      'house cleaners near geneva il',
+      'premium cleaning service geneva'
+    ],
+    localFaqs: [
+      {
+        question: "What Geneva neighborhoods do you clean?",
+        answer: "We serve all Geneva neighborhoods including Downtown Geneva, Mill Creek, Settler's Hill, Fox Bend, Cambridge Lakes, Fabyan Forest, Bennett Park, Westfield, Briargate, Triland, Wheeler Park, and all areas in the 60134 zip code."
+      },
+      {
+        question: "Why do Geneva families choose Willow & Water?",
+        answer: "Geneva families appreciate our premium approach - we use only Branch Basics non-toxic cleaners, provide consistent cleaning teams, and maintain the high standards Geneva residents expect. Our organic products are perfect for homes with children attending Geneva's top-rated schools."
+      },
+      {
+        question: "Do you clean homes in Geneva Commons and Mill Creek?",
+        answer: "Yes! Mill Creek, Geneva Commons, and Cambridge Lakes are some of our most popular service areas. We understand the needs of these beautiful neighborhoods and tailor our cleaning to match the high standards of Geneva living."
+      }
+    ]
   },
 
   'batavia': {
@@ -83,29 +189,81 @@ export const SERVICE_AREAS = {
     population: '26,000+',
     tier: 'primary',
     tagline: "Batavia's trusted organic cleaning team",
-    description: 'Eco-friendly house cleaning services in Batavia, Illinois. Our organic cleaning team serves Batavia homes with safe, non-toxic products that are perfect for families.',
-    metaDescription: 'Eco-friendly house cleaning in Batavia, IL. Safe, non-toxic organic products. Serving Tanglewood Hills, Prairie Lakes, Windmill Creek & more. Book your cleaning today!',
+    description: 'Eco-friendly house cleaning services in Batavia, Illinois. Our organic cleaning team serves Batavia homes with safe, non-toxic Branch Basics products that are perfect for families. From the historic downtown to Fermilab-area homes, we keep Batavia houses sparkling clean without harmful chemicals.',
+    metaDescription: '#1 Eco-Friendly House Cleaning Batavia IL | Non-toxic Branch Basics safe for kids & pets | Tanglewood Hills, Prairie Lakes, Fermilab area | Family-owned | Instant quotes | (630) 267-0096',
+    h1: 'Eco-Friendly House Cleaning in Batavia, Illinois',
+    geo: {
+      latitude: 41.8503,
+      longitude: -88.3126
+    },
     neighborhoods: [
       'Downtown Batavia',
       'Tanglewood Hills',
       'Prairie Lakes',
       'Fox Valley Villages',
       'Windmill Creek',
-      'Settler\'s Ridge',
+      "Settler's Ridge",
       'Church Street',
       'Fermilab Area',
       'Mooseheart',
-      'Butterfield'
+      'Butterfield',
+      'Fabyan Parkway',
+      'Eastside',
+      'Van Nortwick Woods',
+      'Boardwalk'
     ],
-    landmarks: ['Fermilab', 'Batavia Riverwalk', 'Depot Museum', 'Quarry Park'],
+    landmarks: ['Fermilab', 'Batavia Riverwalk', 'Depot Museum', 'Quarry Park', 'Funway Entertainment Center', 'Red Oak Nature Center', 'Batavia Public Library'],
     nearbyAreas: ['Geneva', 'St. Charles', 'Aurora', 'North Aurora', 'Warrenville'],
     facts: [
-      'Known as the "City of Energy" - home to Fermilab',
-      'Strong community of environmentally-conscious families',
-      'Beautiful riverwalk along the Fox River',
-      'Growing preference for green cleaning alternatives',
+      'Known as the "City of Energy" - home to world-famous Fermilab',
+      'Strong community of environmentally-conscious, educated families',
+      'Beautiful riverwalk along the scenic Fox River',
+      'Growing preference for green, eco-friendly cleaning alternatives',
+      'Home to many scientists and professionals who value non-toxic products',
     ],
-    keywords: ['batavia house cleaning', 'batavia il cleaning service', 'organic cleaning batavia', 'non-toxic cleaning batavia il'],
+    keywords: [
+      'batavia house cleaning',
+      'house cleaning batavia il',
+      'batavia il cleaning service',
+      'cleaning service batavia illinois',
+      'organic cleaning batavia',
+      'non-toxic cleaning batavia il',
+      'eco-friendly cleaning batavia',
+      'green house cleaning batavia',
+      'maid service batavia il',
+      'batavia maid service',
+      'best house cleaning batavia',
+      'professional cleaners batavia il',
+      'recurring cleaning batavia',
+      'deep cleaning batavia il',
+      'move in cleaning batavia',
+      'move out cleaning batavia il',
+      'pet safe cleaning batavia',
+      'child safe cleaning batavia il',
+      'branch basics batavia',
+      'organic maid service batavia',
+      'housekeeping batavia il',
+      'weekly cleaning batavia',
+      'biweekly cleaning batavia il',
+      'cleaning near me batavia',
+      'house cleaners near batavia il',
+      'fermilab area cleaning',
+      'tanglewood hills cleaning'
+    ],
+    localFaqs: [
+      {
+        question: "What Batavia neighborhoods do you serve?",
+        answer: "We clean homes throughout Batavia including Downtown Batavia, Tanglewood Hills, Prairie Lakes, Fox Valley Villages, Windmill Creek, Settler's Ridge, the Fermilab area, Mooseheart, Butterfield, and all areas in the 60510 zip code."
+      },
+      {
+        question: "Why are non-toxic cleaners important for Batavia homes?",
+        answer: "Batavia is home to many scientists at Fermilab and educated professionals who understand the importance of avoiding harmful chemicals. Our Branch Basics products are plant-based, biodegradable, and completely safe - perfect for the environmentally-conscious Batavia community."
+      },
+      {
+        question: "Do you offer cleaning near Fermilab?",
+        answer: "Yes! We serve many families in the Fermilab area, Butterfield, and surrounding Batavia neighborhoods. Many Fermilab employees choose us because they appreciate our science-backed approach to non-toxic cleaning."
+      }
+    ]
   },
 
   // ============================================

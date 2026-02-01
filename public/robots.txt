@@ -1,12 +1,56 @@
+# ============================================
 # Willow & Water Organic Cleaning
 # https://www.willowandwaterorganiccleaning.com
+# Organic House Cleaning - St. Charles, Geneva, Batavia IL
+# ============================================
+
+# Primary search engines
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
 
 User-agent: *
 Allow: /
 
-# Sitemap
+# ============================================
+# Sitemaps - All content indexed
+# ============================================
 Sitemap: https://www.willowandwaterorganiccleaning.com/sitemap.xml
 
-# Disallow admin pages from indexing
+# ============================================
+# Protected paths
+# ============================================
+# Admin portal - not for indexing
 Disallow: /admin
 Disallow: /admin/*
+
+# Internal tools
+Disallow: /checklist
+Disallow: /api/
+
+# Development/build files
+Disallow: /*.json$
+Disallow: /node_modules/
+Disallow: /src/
+
+# ============================================
+# Service Areas - Primary (PRIORITY INDEXING)
+# These are our most important pages for local SEO
+# ============================================
+# St. Charles: https://www.willowandwaterorganiccleaning.com/st-charles
+# Geneva: https://www.willowandwaterorganiccleaning.com/geneva
+# Batavia: https://www.willowandwaterorganiccleaning.com/batavia
+
+# ============================================
+# Contact Information (for crawlers)
+# ============================================
+# Phone: (630) 267-0096
+# Email: scheduling@willowandwaterorganiccleaning.com
+# Service Area: Fox Valley IL - Kane, DuPage, Kendall Counties

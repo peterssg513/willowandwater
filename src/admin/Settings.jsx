@@ -11,7 +11,8 @@ import {
   Info,
   Check,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  CalendarDays
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -22,7 +23,7 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState(null);
-  const [expandedSection, setExpandedSection] = useState('pricing');
+  const [expandedSection, setExpandedSection] = useState('scheduling');
   
   // Preview calculator state
   const [previewSqft, setPreviewSqft] = useState(2000);
@@ -50,9 +51,24 @@ const Settings = () => {
       // Convert to object keyed by setting key
       const settingsObj = {};
       data.forEach(row => {
+        // Parse JSON values and convert to display format
+        let displayValue = row.value;
+        if (typeof row.value === 'string') {
+          // If it's a JSON string (starts with quote), parse it
+          if (row.value.startsWith('"') && row.value.endsWith('"')) {
+            try {
+              displayValue = JSON.parse(row.value);
+            } catch {
+              displayValue = row.value;
+            }
+          }
+        } else if (typeof row.value === 'object') {
+          displayValue = JSON.stringify(row.value);
+        }
+        
         settingsObj[row.key] = {
           ...row,
-          value: typeof row.value === 'string' ? row.value : JSON.stringify(row.value)
+          value: String(displayValue)
         };
       });
       
@@ -91,11 +107,18 @@ const Settings = () => {
           const original = originalSettings[key];
           return original && original.value !== settings[key].value;
         })
-        .map(([key, data]) => ({
-          key,
-          value: data.value,
-          updated_at: new Date().toISOString()
-        }));
+        .map(([key, data]) => {
+          // Re-encode date values as JSON strings for storage
+          let value = data.value;
+          if (key.includes('_date') && value && !value.startsWith('"')) {
+            value = JSON.stringify(value);
+          }
+          return {
+            key,
+            value,
+            updated_at: new Date().toISOString()
+          };
+        });
 
       if (updates.length === 0) {
         setSaveSuccess(true);
@@ -212,6 +235,7 @@ const Settings = () => {
   // Group settings by category
   const groupedSettings = useMemo(() => {
     const groups = {
+      scheduling: { label: 'Booking & Scheduling', icon: CalendarDays, items: [] },
       pricing: { label: 'Pricing', icon: DollarSign, items: [] },
       duration: { label: 'Duration Calculations', icon: Clock, items: [] },
       discounts: { label: 'Discounts & Referrals', icon: Percent, items: [] },
@@ -331,40 +355,65 @@ const Settings = () => {
 
                 {isExpanded && (
                   <div className="border-t border-charcoal/5 p-4 sm:p-6 space-y-4">
-                    {group.items.map(item => (
-                      <div key={item.key} className="space-y-2">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <label className="block text-sm font-medium text-charcoal">
-                              {item.label}
-                            </label>
-                            <p className="text-xs text-charcoal/50 mt-0.5">
-                              {item.description}
-                            </p>
-                          </div>
-                          <div className="w-32">
-                            {item.value === 'full' ? (
-                              <input
-                                type="text"
-                                value={item.value}
-                                onChange={(e) => handleSettingChange(item.key, e.target.value)}
-                                className="w-full px-3 py-2 bg-bone border border-charcoal/10 rounded-lg
-                                           font-inter text-sm text-right focus:outline-none focus:ring-2 focus:ring-sage"
-                              />
-                            ) : (
-                              <input
-                                type="number"
-                                step={item.key.includes('multiplier') || item.key.includes('discount') || item.key.includes('percentage') ? '0.01' : '1'}
-                                value={item.value}
-                                onChange={(e) => handleSettingChange(item.key, e.target.value)}
-                                className="w-full px-3 py-2 bg-bone border border-charcoal/10 rounded-lg
-                                           font-inter text-sm text-right focus:outline-none focus:ring-2 focus:ring-sage"
-                              />
-                            )}
+                    {group.items.map(item => {
+                      // Determine input type based on key
+                      const isDateField = item.key.includes('_date') || item.key.includes('launch');
+                      const isBooleanField = item.key.includes('_enabled') || item.value === 'true' || item.value === 'false';
+                      const isTextField = item.value === 'full' || isDateField;
+                      
+                      return (
+                        <div key={item.key} className="space-y-2">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <label className="block text-sm font-medium text-charcoal">
+                                {item.label}
+                              </label>
+                              <p className="text-xs text-charcoal/50 mt-0.5">
+                                {item.description}
+                              </p>
+                            </div>
+                            <div className={isDateField ? 'w-40' : 'w-32'}>
+                              {isBooleanField ? (
+                                <select
+                                  value={item.value}
+                                  onChange={(e) => handleSettingChange(item.key, e.target.value)}
+                                  className="w-full px-3 py-2 bg-bone border border-charcoal/10 rounded-lg
+                                             font-inter text-sm focus:outline-none focus:ring-2 focus:ring-sage"
+                                >
+                                  <option value="true">Enabled</option>
+                                  <option value="false">Disabled</option>
+                                </select>
+                              ) : isDateField ? (
+                                <input
+                                  type="date"
+                                  value={item.value || ''}
+                                  onChange={(e) => handleSettingChange(item.key, e.target.value)}
+                                  className="w-full px-3 py-2 bg-bone border border-charcoal/10 rounded-lg
+                                             font-inter text-sm focus:outline-none focus:ring-2 focus:ring-sage"
+                                />
+                              ) : isTextField ? (
+                                <input
+                                  type="text"
+                                  value={item.value}
+                                  onChange={(e) => handleSettingChange(item.key, e.target.value)}
+                                  className="w-full px-3 py-2 bg-bone border border-charcoal/10 rounded-lg
+                                             font-inter text-sm text-right focus:outline-none focus:ring-2 focus:ring-sage"
+                                />
+                              ) : (
+                                <input
+                                  type="number"
+                                  step={item.key.includes('multiplier') || item.key.includes('discount') || item.key.includes('percentage') ? '0.01' : '1'}
+                                  value={item.value}
+                                  onChange={(e) => handleSettingChange(item.key, e.target.value)}
+                                  className="w-full px-3 py-2 bg-bone border border-charcoal/10 rounded-lg
+                                             font-inter text-sm text-right focus:outline-none focus:ring-2 focus:ring-sage"
+                                />
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

@@ -8,7 +8,8 @@ import {
   TIME_SLOTS,
   getEarliestBookableDate,
   getLatestBookableDate,
-  getDayName
+  getDayName,
+  fetchSchedulingSettings
 } from '../../utils/scheduling';
 import { formatDuration } from '../../utils/pricingLogic';
 
@@ -43,13 +44,19 @@ const ScheduleStep = ({ data, onBack, onComplete }) => {
   const [timeOff, setTimeOff] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch existing bookings and cleaners
+  // Fetch scheduling settings and existing bookings
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        // First fetch scheduling settings to get correct date ranges
+        await fetchSchedulingSettings();
+        
         const earliest = getEarliestBookableDate();
         const latest = getLatestBookableDate();
+        
+        // Update current month to earliest bookable date
+        setCurrentMonth({ year: earliest.getFullYear(), month: earliest.getMonth() });
         
         // Fetch jobs, cleaners, and time off in parallel
         const [jobsRes, cleanersRes, timeOffRes] = await Promise.all([

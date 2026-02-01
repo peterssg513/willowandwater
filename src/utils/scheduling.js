@@ -7,16 +7,104 @@
  * - Cleaner availability checking
  */
 
+import { supabase } from '../lib/supabase';
+
 // ============================================
-// CONSTANTS
+// CONSTANTS & SETTINGS
 // ============================================
 
 // Working days (0 = Sunday, 6 = Saturday)
 const WORKING_DAYS = [1, 2, 3, 4, 5]; // Monday - Friday
 
-// Booking window
-const MIN_DAYS_AHEAD = 7; // Must book at least 1 week out
-const MAX_DAYS_AHEAD = 60; // Can book up to 2 months out
+// Default booking window (can be overridden by database settings)
+let MIN_DAYS_AHEAD = 14; // Must book at least 2 weeks out
+let MAX_DAYS_AHEAD = 60; // Can book up to 2 months out
+let EARLIEST_BOOKING_DATE = null; // Launch date restriction
+let BOOKING_ENABLED = true;
+
+// Settings cache
+let schedulingSettings = null;
+let settingsCacheTime = 0;
+const CACHE_DURATION = 60000; // 1 minute
+
+/**
+ * Fetch scheduling settings from database
+ * @returns {Promise<Object>}
+ */
+export async function fetchSchedulingSettings() {
+  const now = Date.now();
+  
+  // Return cached if still valid
+  if (schedulingSettings && (now - settingsCacheTime) < CACHE_DURATION) {
+    return schedulingSettings;
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('pricing_settings')
+      .select('key, value')
+      .in('key', ['min_booking_days_ahead', 'max_booking_days_ahead', 'earliest_booking_date', 'booking_enabled']);
+    
+    if (error) throw error;
+    
+    // Parse settings (handle JSON-encoded values)
+    const settings = {};
+    data?.forEach(row => {
+      // Try to parse JSON value, fall back to raw value
+      try {
+        settings[row.key] = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+      } catch {
+        settings[row.key] = row.value;
+      }
+    });
+    
+    // Update module-level variables
+    MIN_DAYS_AHEAD = parseInt(settings.min_booking_days_ahead) || 14;
+    MAX_DAYS_AHEAD = parseInt(settings.max_booking_days_ahead) || 60;
+    EARLIEST_BOOKING_DATE = settings.earliest_booking_date || null;
+    BOOKING_ENABLED = settings.booking_enabled !== false && settings.booking_enabled !== 'false';
+    
+    schedulingSettings = {
+      minDaysAhead: MIN_DAYS_AHEAD,
+      maxDaysAhead: MAX_DAYS_AHEAD,
+      earliestBookingDate: EARLIEST_BOOKING_DATE,
+      bookingEnabled: BOOKING_ENABLED,
+    };
+    settingsCacheTime = now;
+    
+    return schedulingSettings;
+  } catch (err) {
+    console.error('Error fetching scheduling settings:', err);
+    // Return defaults on error
+    return {
+      minDaysAhead: 14,
+      maxDaysAhead: 60,
+      earliestBookingDate: null,
+      bookingEnabled: true,
+    };
+  }
+}
+
+/**
+ * Get current scheduling settings (sync, uses cached values)
+ * @returns {Object}
+ */
+export function getSchedulingSettings() {
+  return {
+    minDaysAhead: MIN_DAYS_AHEAD,
+    maxDaysAhead: MAX_DAYS_AHEAD,
+    earliestBookingDate: EARLIEST_BOOKING_DATE,
+    bookingEnabled: BOOKING_ENABLED,
+  };
+}
+
+/**
+ * Clear settings cache (call after admin updates)
+ */
+export function clearSchedulingCache() {
+  schedulingSettings = null;
+  settingsCacheTime = 0;
+}
 
 // Time slots
 export const TIME_SLOTS = {
@@ -105,12 +193,23 @@ export function getDayName(date) {
 // ============================================
 
 /**
- * Get the earliest bookable date (1 week from today)
+ * Get the earliest bookable date
+ * Takes into account:
+ * - Minimum days ahead setting (default 2 weeks)
+ * - Launch date restriction (earliest_booking_date)
  * @returns {Date}
  */
 export function getEarliestBookableDate() {
   const today = startOfDay(new Date());
   let earliest = addDays(today, MIN_DAYS_AHEAD);
+  
+  // Check if there's a launch date restriction
+  if (EARLIEST_BOOKING_DATE) {
+    const launchDate = startOfDay(new Date(EARLIEST_BOOKING_DATE + 'T00:00:00'));
+    if (launchDate > earliest) {
+      earliest = launchDate;
+    }
+  }
   
   // If earliest is not a working day, find next working day
   while (!isWorkingDay(earliest)) {
@@ -358,4 +457,7 @@ export default {
   getSlotAvailability,
   generateCalendarMonth,
   getNextRecurringDate,
+  fetchSchedulingSettings,
+  getSchedulingSettings,
+  clearSchedulingCache,
 };

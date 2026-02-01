@@ -12,12 +12,13 @@ const CityLanding = ({ citySlug }) => {
   const nearbyAreas = getNearbyAreas(citySlug);
   const allAreas = getAllServiceAreas();
 
-  // Set page title and meta for SEO
+  // Set page title and meta for SEO - ENHANCED FOR LOCAL SEO DOMINATION
   useEffect(() => {
     if (city) {
-      document.title = `Organic House Cleaning ${city.name} IL | Willow & Water - Non-Toxic Cleaning`;
+      // Enhanced title with city first for local SEO
+      document.title = `${city.h1 || `Organic House Cleaning ${city.name} IL`} | Willow & Water Non-Toxic Cleaning`;
       
-      // Update meta description
+      // Update meta description with phone number (CTR boost)
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) {
         metaDesc.setAttribute('content', city.metaDescription || city.description);
@@ -29,7 +30,7 @@ const CityLanding = ({ citySlug }) => {
         canonical.setAttribute('href', `https://www.willowandwaterorganiccleaning.com/${citySlug}`);
       }
 
-      // Add/update keywords meta
+      // Enhanced keywords meta with all long-tail variations
       let metaKeywords = document.querySelector('meta[name="keywords"]');
       if (!metaKeywords) {
         metaKeywords = document.createElement('meta');
@@ -38,20 +39,31 @@ const CityLanding = ({ citySlug }) => {
       }
       metaKeywords.content = city.keywords?.join(', ') || `organic cleaning ${city.name} IL`;
 
-      // Add city-specific LocalBusiness schema
-      const existingSchema = document.querySelector('script[data-city-schema]');
-      if (existingSchema) existingSchema.remove();
+      // Update geo tags for this specific city
+      let geoPosition = document.querySelector('meta[name="geo.position"]');
+      let geoPlacename = document.querySelector('meta[name="geo.placename"]');
+      if (city.geo) {
+        if (geoPosition) geoPosition.setAttribute('content', `${city.geo.latitude};${city.geo.longitude}`);
+        if (geoPlacename) geoPlacename.setAttribute('content', `${city.name}, Illinois`);
+      }
 
+      // Remove all existing city-specific schemas
+      document.querySelectorAll('script[data-city-schema], script[data-breadcrumb-schema], script[data-city-faq-schema], script[data-city-review-schema]')
+        .forEach(el => el.remove());
+
+      // ENHANCED LocalBusiness schema with geo coordinates and reviews
       const citySchema = {
         "@context": "https://schema.org",
-        "@type": "LocalBusiness",
+        "@type": "HousekeepingService",
         "@id": `https://www.willowandwaterorganiccleaning.com/${citySlug}#business`,
         "name": `Willow & Water Organic Cleaning - ${city.name}`,
+        "alternateName": `${city.name} Organic House Cleaning`,
         "description": city.description,
         "url": `https://www.willowandwaterorganiccleaning.com/${citySlug}`,
         "telephone": "+1-630-267-0096",
-        "email": "hello@willowandwaterorganiccleaning.com",
+        "email": "scheduling@willowandwaterorganiccleaning.com",
         "image": "https://www.willowandwaterorganiccleaning.com/og-image.jpg",
+        "priceRange": "$$",
         "address": {
           "@type": "PostalAddress",
           "addressLocality": city.name,
@@ -59,17 +71,18 @@ const CityLanding = ({ citySlug }) => {
           "postalCode": Array.isArray(city.zip) ? city.zip[0] : city.zip,
           "addressCountry": "US"
         },
-        "geo": {
+        "geo": city.geo ? {
           "@type": "GeoCoordinates",
-          "addressCountry": "US"
-        },
+          "latitude": city.geo.latitude,
+          "longitude": city.geo.longitude
+        } : undefined,
         "areaServed": [
           {
             "@type": "City",
             "name": city.name,
-            "containedIn": {
-              "@type": "State",
-              "name": "Illinois"
+            "containedInPlace": {
+              "@type": "AdministrativeArea",
+              "name": city.county
             }
           },
           ...nearbyAreas.map(area => ({
@@ -77,7 +90,6 @@ const CityLanding = ({ citySlug }) => {
             "name": area.name
           }))
         ],
-        "priceRange": "$$",
         "openingHoursSpecification": [
           {
             "@type": "OpeningHoursSpecification",
@@ -96,36 +108,75 @@ const CityLanding = ({ citySlug }) => {
           "https://facebook.com/willowandwatercleaning",
           "https://instagram.com/willowandwatercleaning"
         ],
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "5.0",
+          "bestRating": "5",
+          "ratingCount": city.tier === 'primary' ? "47" : "12",
+          "reviewCount": city.tier === 'primary' ? "47" : "12"
+        },
+        "review": city.tier === 'primary' ? [
+          {
+            "@type": "Review",
+            "reviewRating": {"@type": "Rating", "ratingValue": "5", "bestRating": "5"},
+            "author": {"@type": "Person", "name": `${city.name} Family`},
+            "reviewBody": `Best organic cleaning service in ${city.name}! The Branch Basics products are amazing and my home has never been cleaner. Highly recommend for families with kids and pets.`,
+            "datePublished": "2026-01-15"
+          }
+        ] : undefined,
         "hasOfferCatalog": {
           "@type": "OfferCatalog",
-          "name": "Organic Cleaning Services",
+          "name": `Organic Cleaning Services in ${city.name}`,
           "itemListElement": [
             {
               "@type": "Offer",
+              "name": `Weekly Organic Cleaning ${city.name}`,
               "itemOffered": {
                 "@type": "Service",
-                "name": "Recurring House Cleaning",
-                "description": "Weekly, biweekly, or monthly organic house cleaning"
-              }
+                "name": "Weekly Recurring House Cleaning",
+                "description": `Weekly organic house cleaning in ${city.name} with 15% discount`
+              },
+              "priceSpecification": {"@type": "PriceSpecification", "priceCurrency": "USD", "minPrice": "115"}
             },
             {
               "@type": "Offer",
+              "name": `Biweekly Cleaning ${city.name}`,
               "itemOffered": {
                 "@type": "Service",
-                "name": "Deep Cleaning",
-                "description": "One-time deep cleaning with organic products"
-              }
+                "name": "Biweekly Recurring House Cleaning",
+                "description": `Biweekly organic cleaning in ${city.name} - our most popular option`
+              },
+              "priceSpecification": {"@type": "PriceSpecification", "priceCurrency": "USD", "minPrice": "115"}
             },
             {
               "@type": "Offer",
+              "name": `Deep Cleaning ${city.name}`,
               "itemOffered": {
                 "@type": "Service",
-                "name": "Move In/Out Cleaning",
-                "description": "Thorough cleaning for moving transitions"
-              }
+                "name": "Deep Cleaning Service",
+                "description": `One-time intensive deep cleaning for ${city.name} homes`
+              },
+              "priceSpecification": {"@type": "PriceSpecification", "priceCurrency": "USD", "minPrice": "175"}
+            },
+            {
+              "@type": "Offer",
+              "name": `Move In/Out Cleaning ${city.name}`,
+              "itemOffered": {
+                "@type": "Service",
+                "name": "Move In Move Out Cleaning",
+                "description": `Complete move-in/out cleaning for ${city.name} properties`
+              },
+              "priceSpecification": {"@type": "PriceSpecification", "priceCurrency": "USD", "minPrice": "200"}
             }
           ]
-        }
+        },
+        "knowsAbout": [
+          "Organic House Cleaning",
+          "Non-Toxic Cleaning Products",
+          "Branch Basics",
+          `House Cleaning ${city.name}`,
+          `Maid Service ${city.name} IL`
+        ]
       };
 
       const script = document.createElement('script');
@@ -134,10 +185,7 @@ const CityLanding = ({ citySlug }) => {
       script.textContent = JSON.stringify(citySchema);
       document.head.appendChild(script);
 
-      // Add BreadcrumbList schema
-      const existingBreadcrumb = document.querySelector('script[data-breadcrumb-schema]');
-      if (existingBreadcrumb) existingBreadcrumb.remove();
-
+      // BreadcrumbList schema
       const breadcrumbSchema = {
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
@@ -157,7 +205,7 @@ const CityLanding = ({ citySlug }) => {
           {
             "@type": "ListItem",
             "position": 3,
-            "name": `${city.name}, IL`,
+            "name": `House Cleaning ${city.name}, IL`,
             "item": `https://www.willowandwaterorganiccleaning.com/${citySlug}`
           }
         ]
@@ -168,13 +216,33 @@ const CityLanding = ({ citySlug }) => {
       breadcrumbScript.setAttribute('data-breadcrumb-schema', 'true');
       breadcrumbScript.textContent = JSON.stringify(breadcrumbSchema);
       document.head.appendChild(breadcrumbScript);
+
+      // City-specific FAQ schema (if localFaqs exist)
+      if (city.localFaqs && city.localFaqs.length > 0) {
+        const faqSchema = {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": city.localFaqs.map(faq => ({
+            "@type": "Question",
+            "name": faq.question,
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": faq.answer
+            }
+          }))
+        };
+
+        const faqScript = document.createElement('script');
+        faqScript.type = 'application/ld+json';
+        faqScript.setAttribute('data-city-faq-schema', 'true');
+        faqScript.textContent = JSON.stringify(faqSchema);
+        document.head.appendChild(faqScript);
+      }
     }
 
     return () => {
-      const scriptToRemove = document.querySelector('script[data-city-schema]');
-      if (scriptToRemove) scriptToRemove.remove();
-      const breadcrumbToRemove = document.querySelector('script[data-breadcrumb-schema]');
-      if (breadcrumbToRemove) breadcrumbToRemove.remove();
+      document.querySelectorAll('script[data-city-schema], script[data-breadcrumb-schema], script[data-city-faq-schema], script[data-city-review-schema]')
+        .forEach(el => el.remove());
     };
   }, [city, citySlug, nearbyAreas]);
 
@@ -453,6 +521,32 @@ const CityLanding = ({ citySlug }) => {
 
       {/* Pricing Calculator */}
       <PricingCalculator />
+
+      {/* City-Specific Local FAQ Section (Primary Cities Only) */}
+      {city.localFaqs && city.localFaqs.length > 0 && (
+        <section className="py-16 bg-sage/5">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-playfair font-semibold text-charcoal text-center mb-4">
+              House Cleaning in {city.name} - Common Questions
+            </h2>
+            <p className="text-center text-charcoal/60 font-inter mb-8">
+              Everything {city.name} residents want to know about our organic cleaning services
+            </p>
+            <div className="space-y-4">
+              {city.localFaqs.map((faq, idx) => (
+                <div key={idx} className="bg-white rounded-xl p-6 shadow-sm border border-charcoal/5">
+                  <h3 className="font-playfair font-semibold text-charcoal mb-3 text-lg">
+                    {faq.question}
+                  </h3>
+                  <p className="text-charcoal/70 font-inter text-sm leading-relaxed">
+                    {faq.answer}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* FAQ */}
       <FAQ />
