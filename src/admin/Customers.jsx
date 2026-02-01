@@ -427,17 +427,10 @@ const Customers = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      if (data && data.length > 0) {
-        setBookings(data);
-      } else {
-        const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-        setBookings(localBookings);
-      }
+      setBookings(data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-      setBookings(localBookings);
+      setBookings([]);
     } finally {
       setLoading(false);
     }

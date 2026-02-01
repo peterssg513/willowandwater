@@ -247,24 +247,12 @@ const Communications = () => {
         supabase.from('cleaners').select('*').eq('status', 'active'),
       ]);
 
-      let bookingsData = bookingsRes.data || [];
-      let cleanersData = cleanersRes.data || [];
-      
-      if (bookingsData.length === 0) {
-        bookingsData = JSON.parse(localStorage.getItem('bookings') || '[]');
-      }
-      if (cleanersData.length === 0) {
-        const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
-        cleanersData = localCleaners.filter(c => c.status === 'active');
-      }
-      
-      setBookings(bookingsData);
-      setCleaners(cleanersData);
+      setBookings(bookingsRes.data || []);
+      setCleaners(cleanersRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      setBookings(JSON.parse(localStorage.getItem('bookings') || '[]'));
-      const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
-      setCleaners(localCleaners.filter(c => c.status === 'active'));
+      setBookings([]);
+      setCleaners([]);
     } finally {
       setLoading(false);
     }

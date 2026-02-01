@@ -83,25 +83,6 @@ const ExpenseModal = ({ expense, onClose, onSave }) => {
       onClose();
     } catch (error) {
       console.error('Error saving expense:', error);
-      // If table doesn't exist, save to localStorage
-      const localExpenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-      const newExpense = {
-        ...formData,
-        id: expense?.id || Date.now(),
-        amount: parseFloat(formData.amount),
-        created_at: new Date().toISOString(),
-      };
-      
-      if (expense?.id) {
-        const index = localExpenses.findIndex(e => e.id === expense.id);
-        if (index >= 0) localExpenses[index] = newExpense;
-      } else {
-        localExpenses.push(newExpense);
-      }
-      
-      localStorage.setItem('expenses', JSON.stringify(localExpenses));
-      onSave(newExpense);
-      onClose();
     } finally {
       setIsSaving(false);
     }
@@ -258,39 +239,17 @@ const Expenses = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Try to fetch from Supabase
-      const { data: expenseData } = await supabase
-        .from('expenses')
-        .select('*')
-        .order('date', { ascending: false });
+      const [expenseRes, bookingRes] = await Promise.all([
+        supabase.from('expenses').select('*').order('date', { ascending: false }),
+        supabase.from('bookings').select('*').in('status', ['confirmed', 'completed']),
+      ]);
 
-      const { data: bookingData } = await supabase
-        .from('bookings')
-        .select('*')
-        .in('status', ['confirmed', 'completed']);
-
-      // Handle expenses
-      if (expenseData && expenseData.length > 0) {
-        setExpenses(expenseData);
-      } else {
-        // Fall back to localStorage
-        const localExpenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-        setExpenses(localExpenses);
-      }
-
-      // Handle bookings
-      if (bookingData && bookingData.length > 0) {
-        setBookings(bookingData);
-      } else {
-        const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-        setBookings(localBookings.filter(b => ['confirmed', 'completed'].includes(b.status)));
-      }
+      setExpenses(expenseRes.data || []);
+      setBookings(bookingRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      const localExpenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-      const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-      setExpenses(localExpenses);
-      setBookings(localBookings.filter(b => ['confirmed', 'completed'].includes(b.status)));
+      setExpenses([]);
+      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -310,13 +269,10 @@ const Expenses = () => {
     
     try {
       await supabase.from('expenses').delete().eq('id', id);
-    } catch {
-      // Delete from localStorage
-      const localExpenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-      localStorage.setItem('expenses', JSON.stringify(localExpenses.filter(e => e.id !== id)));
+      setExpenses(prev => prev.filter(e => e.id !== id));
+    } catch (error) {
+      console.error('Error deleting expense:', error);
     }
-    
-    setExpenses(prev => prev.filter(e => e.id !== id));
   };
 
   // Calculate date range

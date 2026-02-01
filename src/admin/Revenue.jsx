@@ -39,19 +39,10 @@ const Revenue = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      // Use Supabase data or fallback to localStorage
-      if (data && data.length > 0) {
-        setBookings(data);
-      } else {
-        const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-        setBookings(localBookings);
-      }
+      setBookings(data || []);
     } catch (error) {
       console.error('Error fetching bookings:', error);
-      // Fallback to localStorage
-      const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-      setBookings(localBookings);
+      setBookings([]);
     } finally {
       setLoading(false);
     }

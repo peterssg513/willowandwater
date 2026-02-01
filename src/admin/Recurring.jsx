@@ -261,34 +261,12 @@ const Recurring = () => {
         supabase.from('cleaners').select('*').eq('status', 'active'),
       ]);
 
-      // Use Supabase data or fallback to localStorage
-      let bookingsData = bookingsRes.data || [];
-      let cleanersData = cleanersRes.data || [];
-      
-      if (bookingsData.length === 0) {
-        const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-        bookingsData = localBookings.filter(b => 
-          b.frequency && b.frequency !== 'onetime' && 
-          ['confirmed', 'completed', 'paused'].includes(b.status)
-        );
-      }
-      if (cleanersData.length === 0) {
-        const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
-        cleanersData = localCleaners.filter(c => c.status === 'active');
-      }
-      
-      setBookings(bookingsData);
-      setCleaners(cleanersData);
+      setBookings(bookingsRes.data || []);
+      setCleaners(cleanersRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      // Fallback to localStorage
-      const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]').filter(b => 
-        b.frequency && b.frequency !== 'onetime' && 
-        ['confirmed', 'completed', 'paused'].includes(b.status)
-      );
-      const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]').filter(c => c.status === 'active');
-      setBookings(localBookings);
-      setCleaners(localCleaners);
+      setBookings([]);
+      setCleaners([]);
     } finally {
       setLoading(false);
     }

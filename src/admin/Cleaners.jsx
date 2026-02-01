@@ -72,11 +72,6 @@ const CleanerModal = ({ cleaner, onClose, onSave }) => {
         
         const updatedCleaner = { ...cleaner, ...formData };
         onSave(updatedCleaner);
-        
-        // Update localStorage
-        const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
-        const updatedLocal = localCleaners.map(c => c.id === cleaner.id ? updatedCleaner : c);
-        localStorage.setItem('cleaners', JSON.stringify(updatedLocal));
       } else {
         // Create new cleaner
         const { data, error: insertError } = await supabase
@@ -89,36 +84,12 @@ const CleanerModal = ({ cleaner, onClose, onSave }) => {
         
         if (data) {
           onSave(data);
-          // Update localStorage
-          const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
-          localStorage.setItem('cleaners', JSON.stringify([...localCleaners, data]));
         }
       }
       onClose();
     } catch (err) {
       console.error('Error saving cleaner:', err);
-      
-      // Fallback to localStorage
-      const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
-      
-      if (cleaner?.id) {
-        const updatedCleaner = { ...cleaner, ...formData };
-        const updatedLocal = localCleaners.map(c => c.id === cleaner.id ? updatedCleaner : c);
-        localStorage.setItem('cleaners', JSON.stringify(updatedLocal));
-        onSave(updatedCleaner);
-        onClose();
-      } else {
-        const newCleaner = {
-          ...formData,
-          id: `local-${Date.now()}`,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          total_assignments: 0,
-        };
-        localStorage.setItem('cleaners', JSON.stringify([...localCleaners, newCleaner]));
-        onSave(newCleaner);
-        onClose();
-      }
+      setError('Failed to save cleaner. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -337,19 +308,10 @@ const DeleteConfirmModal = ({ cleaner, onClose, onConfirm }) => {
 
       if (error) throw error;
       
-      // Also remove from localStorage
-      const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
-      localStorage.setItem('cleaners', JSON.stringify(localCleaners.filter(c => c.id !== cleaner.id)));
-      
       onConfirm(cleaner.id);
       onClose();
     } catch (err) {
       console.error('Error deleting cleaner:', err);
-      // Fallback to localStorage
-      const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
-      localStorage.setItem('cleaners', JSON.stringify(localCleaners.filter(c => c.id !== cleaner.id)));
-      onConfirm(cleaner.id);
-      onClose();
     } finally {
       setIsDeleting(false);
     }
@@ -532,22 +494,10 @@ const Cleaners = () => {
         .order('name');
 
       if (error) throw error;
-      
-      // If data is empty, try localStorage fallback
-      if (data && data.length > 0) {
-        setCleaners(data);
-        // Sync to localStorage
-        localStorage.setItem('cleaners', JSON.stringify(data));
-      } else {
-        // Try to load from localStorage
-        const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
-        setCleaners(localCleaners);
-      }
+      setCleaners(data || []);
     } catch (error) {
       console.error('Error fetching cleaners:', error);
-      // Fallback to localStorage
-      const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
-      setCleaners(localCleaners);
+      setCleaners([]);
     } finally {
       setLoading(false);
     }

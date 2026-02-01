@@ -286,29 +286,12 @@ const Bookings = () => {
         supabase.from('cleaners').select('*').eq('status', 'active'),
       ]);
 
-      // Use data or empty array
-      const bookingsData = bookingsResponse.data || [];
-      const cleanersData = cleanersResponse.data || [];
-      
-      setBookings(bookingsData);
-      setCleaners(cleanersData);
-      
-      // If no data from Supabase, try localStorage
-      if (bookingsData.length === 0) {
-        const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-        setBookings(localBookings);
-      }
-      if (cleanersData.length === 0) {
-        const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
-        setCleaners(localCleaners);
-      }
+      setBookings(bookingsResponse.data || []);
+      setCleaners(cleanersResponse.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      // Fallback to localStorage
-      const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-      const localCleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
-      setBookings(localBookings);
-      setCleaners(localCleaners);
+      setBookings([]);
+      setCleaners([]);
     } finally {
       setLoading(false);
     }
@@ -383,7 +366,6 @@ const Bookings = () => {
     const ids = Array.from(selectedIds);
     
     try {
-      // Update in Supabase
       for (const id of ids) {
         await supabase.from('bookings').update({ status: newStatus }).eq('id', id);
       }
@@ -391,17 +373,9 @@ const Bookings = () => {
       console.error('Error updating status:', error);
     }
     
-    // Update local state
     setBookings(prev => prev.map(b => 
       selectedIds.has(b.id) ? { ...b, status: newStatus } : b
     ));
-    
-    // Update localStorage
-    const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-    const updated = localBookings.map(b => 
-      selectedIds.has(b.id) ? { ...b, status: newStatus } : b
-    );
-    localStorage.setItem('bookings', JSON.stringify(updated));
     
     setSelectedIds(new Set());
     setShowBatchActions(false);
@@ -421,12 +395,6 @@ const Bookings = () => {
     setBookings(prev => prev.map(b => 
       selectedIds.has(b.id) ? { ...b, cleaner_id: cleanerId } : b
     ));
-    
-    const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-    const updated = localBookings.map(b => 
-      selectedIds.has(b.id) ? { ...b, cleaner_id: cleanerId } : b
-    );
-    localStorage.setItem('bookings', JSON.stringify(updated));
     
     setSelectedIds(new Set());
     setShowBatchActions(false);

@@ -46,22 +46,12 @@ const Reports = () => {
         supabase.from('cleaners').select('*'),
       ]);
 
-      let bookingsData = bookingsRes.data || [];
-      let cleanersData = cleanersRes.data || [];
-      
-      if (bookingsData.length === 0) {
-        bookingsData = JSON.parse(localStorage.getItem('bookings') || '[]');
-      }
-      if (cleanersData.length === 0) {
-        cleanersData = JSON.parse(localStorage.getItem('cleaners') || '[]');
-      }
-      
-      setBookings(bookingsData);
-      setCleaners(cleanersData);
+      setBookings(bookingsRes.data || []);
+      setCleaners(cleanersRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      setBookings(JSON.parse(localStorage.getItem('bookings') || '[]'));
-      setCleaners(JSON.parse(localStorage.getItem('cleaners') || '[]'));
+      setBookings([]);
+      setCleaners([]);
     } finally {
       setLoading(false);
     }
