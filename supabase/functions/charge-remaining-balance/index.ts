@@ -29,7 +29,8 @@ serve(async (req) => {
     // Get today's date
     const today = new Date().toISOString().split('T')[0]
     
-    // Get jobs scheduled for today that need remaining balance charged
+    // Get jobs scheduled for today that need payment charged
+    // Includes both: deposit_paid (first cleans) and pending (recurring)
     const { data: jobs, error: jobsError } = await supabase
       .from('jobs')
       .select(`
@@ -43,7 +44,7 @@ serve(async (req) => {
         )
       `)
       .eq('scheduled_date', today)
-      .eq('payment_status', 'deposit_paid')
+      .in('payment_status', ['deposit_paid', 'pending'])
       .gt('remaining_amount', 0)
 
     if (jobsError) {

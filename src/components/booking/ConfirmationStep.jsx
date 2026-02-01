@@ -9,17 +9,34 @@ import {
   Check,
   MessageSquare,
   Mail,
-  Home
+  Home,
+  Repeat,
+  CalendarDays,
+  Loader2,
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import { formatPrice, formatFrequency, formatTimeSlot } from '../../utils/pricingLogic';
 import { formatDate } from '../../utils/scheduling';
 
 /**
- * ConfirmationStep - Booking success + referral sharing
+ * ConfirmationStep - Booking success + referral sharing + recurring setup
  */
 const ConfirmationStep = ({ data, onClose }) => {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  
+  // Recurring setup state
+  const [showRecurringSetup, setShowRecurringSetup] = useState(false);
+  const [recurringSetupComplete, setRecurringSetupComplete] = useState(false);
+  const [recurringData, setRecurringData] = useState(null);
+  const [settingUpRecurring, setSettingUpRecurring] = useState(false);
+  const [recurringError, setRecurringError] = useState(null);
+  const [recurringForm, setRecurringForm] = useState({
+    frequency: 'biweekly',
+    preferredDay: 'monday',
+    preferredTime: 'morning',
+  });
 
   const referralCode = data.customer?.referral_code || 'LOADING';
   const referralLink = `${window.location.origin}?ref=${referralCode}`;
@@ -49,6 +66,64 @@ const ConfirmationStep = ({ data, onClose }) => {
     const body = `Hi!\n\nI just booked Willow & Water for organic home cleaning and wanted to share my referral code with you.\n\nUse code ${referralCode} to get $25 off your first clean!\n\nBook here: ${referralLink}\n\nThey use all non-toxic, eco-friendly products which is perfect if you have kids or pets.`;
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
   };
+
+  // Handle recurring setup
+  const handleSetupRecurring = async () => {
+    setSettingUpRecurring(true);
+    setRecurringError(null);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/setup-recurring`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          customerId: data.customerId,
+          frequency: recurringForm.frequency,
+          preferredDay: recurringForm.preferredDay,
+          preferredTime: recurringForm.preferredTime,
+          basePrice: data.pricing?.recurringPrice || data.pricing?.firstCleanPrice * 0.8,
+          monthsAhead: 3,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to set up recurring cleanings');
+      }
+
+      setRecurringData(result);
+      setRecurringSetupComplete(true);
+      setShowRecurringSetup(false);
+    } catch (err) {
+      console.error('Recurring setup error:', err);
+      setRecurringError(err.message);
+    } finally {
+      setSettingUpRecurring(false);
+    }
+  };
+
+  const FREQUENCY_OPTIONS = [
+    { value: 'weekly', label: 'Weekly', discount: '35% off', description: 'Every week' },
+    { value: 'biweekly', label: 'Bi-Weekly', discount: '20% off', description: 'Every 2 weeks' },
+    { value: 'monthly', label: 'Monthly', discount: '10% off', description: 'Once a month' },
+  ];
+
+  const DAY_OPTIONS = [
+    { value: 'monday', label: 'Monday' },
+    { value: 'tuesday', label: 'Tuesday' },
+    { value: 'wednesday', label: 'Wednesday' },
+    { value: 'thursday', label: 'Thursday' },
+    { value: 'friday', label: 'Friday' },
+  ];
+
+  const TIME_OPTIONS = [
+    { value: 'morning', label: 'Morning', time: '9am - 12pm' },
+    { value: 'afternoon', label: 'Afternoon', time: '1pm - 5pm' },
+  ];
 
   const pricing = data.pricing;
   const depositAmount = Math.round((pricing?.firstCleanTotal - (data.referralDiscount || 0)) * 0.2);
@@ -159,6 +234,204 @@ const ConfirmationStep = ({ data, onClose }) => {
           </li>
         </ol>
       </div>
+
+      {/* Recurring Cleanings Setup */}
+      {!recurringSetupComplete && data.frequency === 'onetime' && (
+        <div className="bg-gradient-to-br from-sage/10 to-sage/5 rounded-2xl p-6 text-left max-w-md mx-auto border border-sage/20">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-sage rounded-full flex items-center justify-center">
+              <Repeat className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-inter font-semibold text-charcoal">
+                Want Recurring Cleanings?
+              </h3>
+              <p className="text-sm text-charcoal/60">
+                Save up to 35% with a subscription
+              </p>
+            </div>
+          </div>
+
+          {!showRecurringSetup ? (
+            <button
+              onClick={() => setShowRecurringSetup(true)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-white rounded-xl border border-sage/30 hover:border-sage hover:bg-sage/5 transition-all group"
+            >
+              <span className="font-inter font-medium text-charcoal">Set up recurring cleanings</span>
+              <ChevronRight className="w-5 h-5 text-sage group-hover:translate-x-1 transition-transform" />
+            </button>
+          ) : (
+            <div className="space-y-5">
+              {/* Frequency Selection */}
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-2">How often?</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {FREQUENCY_OPTIONS.map(freq => (
+                    <button
+                      key={freq.value}
+                      type="button"
+                      onClick={() => setRecurringForm(prev => ({ ...prev, frequency: freq.value }))}
+                      className={`
+                        p-3 rounded-xl border-2 text-center transition-all
+                        ${recurringForm.frequency === freq.value
+                          ? 'border-sage bg-sage/10'
+                          : 'border-charcoal/10 hover:border-sage/50 bg-white'
+                        }
+                      `}
+                    >
+                      <p className="font-inter text-sm font-medium text-charcoal">{freq.label}</p>
+                      <p className="text-xs text-sage font-medium mt-0.5">{freq.discount}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Day Selection */}
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-2">Preferred day</label>
+                <select
+                  value={recurringForm.preferredDay}
+                  onChange={(e) => setRecurringForm(prev => ({ ...prev, preferredDay: e.target.value }))}
+                  className="w-full px-4 py-3 bg-white border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                >
+                  {DAY_OPTIONS.map(day => (
+                    <option key={day.value} value={day.value}>{day.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Time Selection */}
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-2">Preferred time</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {TIME_OPTIONS.map(time => (
+                    <button
+                      key={time.value}
+                      type="button"
+                      onClick={() => setRecurringForm(prev => ({ ...prev, preferredTime: time.value }))}
+                      className={`
+                        p-3 rounded-xl border-2 text-center transition-all
+                        ${recurringForm.preferredTime === time.value
+                          ? 'border-sage bg-sage/10'
+                          : 'border-charcoal/10 hover:border-sage/50 bg-white'
+                        }
+                      `}
+                    >
+                      <p className="font-inter text-sm font-medium text-charcoal">{time.label}</p>
+                      <p className="text-xs text-charcoal/50">{time.time}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pricing Info */}
+              <div className="bg-white rounded-xl p-4 border border-sage/20">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-charcoal/70">Price per cleaning</span>
+                  <span className="font-inter font-semibold text-charcoal">
+                    {formatPrice(pricing?.recurringPrice || 0)}
+                  </span>
+                </div>
+                <p className="text-xs text-charcoal/50">
+                  Your card on file will be automatically charged the morning of each cleaning.
+                </p>
+              </div>
+
+              {/* Error */}
+              {recurringError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                  {recurringError}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowRecurringSetup(false)}
+                  className="flex-1 px-4 py-3 border border-charcoal/20 rounded-xl font-inter font-medium text-charcoal hover:bg-charcoal/5 transition-colors"
+                >
+                  Not Now
+                </button>
+                <button
+                  onClick={handleSetupRecurring}
+                  disabled={settingUpRecurring}
+                  className="flex-1 btn-primary flex items-center justify-center gap-2"
+                >
+                  {settingUpRecurring ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Setting Up...
+                    </>
+                  ) : (
+                    <>
+                      <CalendarDays className="w-4 h-4" />
+                      Start Recurring
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Recurring Setup Success */}
+      {recurringSetupComplete && recurringData && (
+        <div className="bg-green-50 rounded-2xl p-6 text-left max-w-md mx-auto border border-green-200">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-inter font-semibold text-green-800">
+                Recurring Cleanings Set Up!
+              </h3>
+              <p className="text-sm text-green-600">
+                {recurringData.jobsCreated} cleanings scheduled
+              </p>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-charcoal/70">Frequency</span>
+              <span className="font-medium text-charcoal capitalize">{recurringData.frequency}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-charcoal/70">Day</span>
+              <span className="font-medium text-charcoal capitalize">{recurringData.preferredDay}s</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-charcoal/70">Next Cleaning</span>
+              <span className="font-medium text-charcoal">{formatDate(new Date(recurringData.nextCleaningDate))}</span>
+            </div>
+            <div className="flex justify-between pt-2 border-t border-green-100">
+              <span className="text-charcoal/70">Price per visit</span>
+              <span className="font-semibold text-green-600">{formatPrice(recurringData.pricePerVisit)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Already has recurring from booking */}
+      {data.frequency !== 'onetime' && !recurringSetupComplete && (
+        <div className="bg-sage/5 rounded-2xl p-6 text-left max-w-md mx-auto border border-sage/20">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-sage/20 rounded-full flex items-center justify-center">
+              <Repeat className="w-5 h-5 text-sage" />
+            </div>
+            <div>
+              <h3 className="font-inter font-semibold text-charcoal">
+                {formatFrequency(data.frequency)} Service Starting Soon
+              </h3>
+              <p className="text-sm text-charcoal/60">
+                After your first clean, we'll schedule your recurring visits
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Referral Section */}
       <div className="bg-gradient-to-br from-sage/10 to-sage/5 rounded-2xl p-6 text-left max-w-md mx-auto border border-sage/20">
