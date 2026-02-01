@@ -31,6 +31,7 @@ const ContactStep = ({ data, onBack, onComplete }) => {
     zip: data.customer?.zip || '',
     accessType: data.customer?.access_type || '',
     accessInstructions: data.customer?.access_instructions || '',
+    smsConsent: data.customer?.sms_consent || false,
   });
   
   // Referral code
@@ -118,6 +119,10 @@ const ContactStep = ({ data, onBack, onComplete }) => {
       newErrors.accessType = 'Please select how we can access your home';
     }
     
+    if (!formData.smsConsent) {
+      newErrors.smsConsent = 'Please agree to receive text messages to continue';
+    }
+    
     // Require access instructions for certain types
     if (['lockbox', 'garage_code', 'hidden_key', 'other'].includes(formData.accessType)) {
       if (!formData.accessInstructions.trim()) {
@@ -167,6 +172,8 @@ const ContactStep = ({ data, onBack, onComplete }) => {
             bathrooms: data.bathrooms,
             access_type: formData.accessType,
             access_instructions: formData.accessInstructions.trim() || null,
+            sms_consent: formData.smsConsent,
+            sms_consent_at: formData.smsConsent ? new Date().toISOString() : null,
           })
           .eq('id', existingCustomer.id)
           .select()
@@ -194,6 +201,8 @@ const ContactStep = ({ data, onBack, onComplete }) => {
             access_instructions: formData.accessInstructions.trim() || null,
             status: 'prospect',
             referred_by_customer_id: referralStatus === 'valid' ? undefined : null,
+            sms_consent: formData.smsConsent,
+            sms_consent_at: formData.smsConsent ? new Date().toISOString() : null,
           })
           .select()
           .single();
@@ -309,6 +318,39 @@ const ContactStep = ({ data, onBack, onComplete }) => {
               <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
             )}
           </div>
+        </div>
+
+        {/* SMS Consent */}
+        <div className={`p-4 rounded-xl border-2 transition-colors ${
+          formData.smsConsent ? 'border-sage bg-sage/5' : errors.smsConsent ? 'border-red-300 bg-red-50/50' : 'border-charcoal/10 bg-charcoal/5'
+        }`}>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.smsConsent}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, smsConsent: e.target.checked }));
+                if (errors.smsConsent) {
+                  setErrors(prev => ({ ...prev, smsConsent: null }));
+                }
+              }}
+              className="mt-1 w-5 h-5 rounded border-charcoal/20 text-sage focus:ring-sage cursor-pointer"
+            />
+            <div className="flex-1">
+              <span className="font-inter text-sm font-medium text-charcoal">
+                I agree to receive text messages from Willow & Water
+              </span>
+              <p className="mt-1 text-xs text-charcoal/60 leading-relaxed">
+                By checking this box, you consent to receive automated appointment reminders, 
+                booking confirmations, and service updates via SMS to the phone number provided. 
+                Message frequency varies. Message and data rates may apply. 
+                Reply STOP to unsubscribe or HELP for assistance.
+              </p>
+            </div>
+          </label>
+          {errors.smsConsent && (
+            <p className="mt-2 text-sm text-red-600 ml-8">{errors.smsConsent}</p>
+          )}
         </div>
 
         {/* Address */}
