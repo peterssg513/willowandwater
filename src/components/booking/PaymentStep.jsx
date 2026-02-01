@@ -557,6 +557,24 @@ const PaymentForm = ({ data, depositAmount, tipAmount, remainingAmount, totalAft
         }
       });
 
+      // Send booking confirmation (SMS + Email)
+      try {
+        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-booking-confirmation`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            jobId: job.id,
+            customerId: data.customerId,
+          }),
+        });
+      } catch (confirmError) {
+        // Don't fail the booking if confirmation fails
+        console.error('Failed to send booking confirmation:', confirmError);
+      }
+
       // Complete the step
       onComplete({
         jobId: job.id,

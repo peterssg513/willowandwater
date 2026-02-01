@@ -16,6 +16,7 @@ import ServiceAreasPage from './components/ServiceAreasPage';
 import BlogList from './components/BlogList';
 import BlogPost from './components/BlogPost';
 import StickyMobileCTA from './components/StickyMobileCTA';
+import FeedbackPage from './pages/FeedbackPage';
 
 // Admin imports
 import AdminLogin from './admin/AdminLogin';
@@ -208,6 +209,9 @@ function App() {
       {/* Blog Routes */}
       <Route path="/blog" element={<BlogList />} />
       <Route path="/blog/:slug" element={<BlogPost />} />
+      
+      {/* Feedback Page */}
+      <Route path="/feedback" element={<FeedbackPage />} />
       
       {/* City Landing Pages - All Fox Valley Service Areas */}
       {SERVICE_AREA_LIST.map((area) => (
