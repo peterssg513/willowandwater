@@ -41,21 +41,42 @@ const PaymentStep = ({ bookingData, onBack, onComplete }) => {
     setError('');
 
     try {
-      // Update booking status
-      await supabase
+      // First, find the booking to update
+      const { data: existingBookings, error: findError } = await supabase
         .from('bookings')
-        .update({
-          status: 'payment_initiated',
-          scheduled_date: schedule?.scheduledDate,
-          scheduled_time: schedule?.scheduledTime,
-          cal_booking_id: schedule?.calBookingId,
-          deposit_amount: depositAmount,
-          remaining_amount: remainingAmount,
-        })
-        .eq('email', contact?.email)
-        .eq('status', 'lead')
+        .select('id, status')
+        .eq('email', contact?.email?.toLowerCase())
+        .in('status', ['lead', 'payment_initiated'])
         .order('created_at', { ascending: false })
         .limit(1);
+
+      if (findError) {
+        console.error('Error finding booking:', findError);
+      }
+
+      // Update booking with scheduled date/time
+      if (existingBookings && existingBookings.length > 0) {
+        const bookingId = existingBookings[0].id;
+        const { error: updateError } = await supabase
+          .from('bookings')
+          .update({
+            status: 'payment_initiated',
+            scheduled_date: schedule?.scheduledDate || null,
+            scheduled_time: schedule?.scheduledTime || null,
+            cal_booking_id: schedule?.calBookingId || null,
+            deposit_amount: depositAmount,
+            remaining_amount: remainingAmount,
+          })
+          .eq('id', bookingId);
+
+        if (updateError) {
+          console.error('Error updating booking with schedule:', updateError);
+        } else {
+          console.log('Booking updated with schedule - Date:', schedule?.scheduledDate, 'Time:', schedule?.scheduledTime);
+        }
+      } else {
+        console.log('No existing booking found to update');
+      }
 
       // Call Supabase Edge Function to create Stripe Checkout Session
       const { data, error: fnError } = await supabase.functions.invoke('create-checkout', {
@@ -106,6 +127,11 @@ const PaymentStep = ({ bookingData, onBack, onComplete }) => {
         }
         
         // Save booking data to localStorage so BookingSuccess can update status
+        console.log('Saving booking data to localStorage:', {
+          email: bookingData.contact?.email,
+          scheduledDate: bookingData.schedule?.scheduledDate,
+          scheduledTime: bookingData.schedule?.scheduledTime,
+        });
         localStorage.setItem('willow_booking_data', JSON.stringify(bookingData));
         
         window.location.href = data.url;

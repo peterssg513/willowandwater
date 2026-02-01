@@ -301,6 +301,9 @@ const Schedule = () => {
                         }
                       `}
                     >
+                      {booking.scheduled_time && (
+                        <div className="text-[10px] opacity-70">{booking.scheduled_time}</div>
+                      )}
                       <div className="font-medium truncate">{booking.name}</div>
                     </button>
                   ))}
@@ -339,6 +342,9 @@ const Schedule = () => {
                 {new Date(selectedBooking.scheduled_date).toLocaleDateString('en-US', {
                   weekday: 'long', month: 'long', day: 'numeric'
                 })}
+                {selectedBooking.scheduled_time && (
+                  <span className="ml-2 font-medium text-charcoal">@ {selectedBooking.scheduled_time}</span>
+                )}
               </p>
             </div>
             <div className="p-6 space-y-3">

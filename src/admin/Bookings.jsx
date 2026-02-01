@@ -232,6 +232,9 @@ const Bookings = () => {
                       <div className="flex items-center gap-2 text-charcoal/60">
                         <CalendarDays className="w-4 h-4" />
                         <span>{formatDate(booking.scheduled_date)}</span>
+                        {booking.scheduled_time && (
+                          <span className="text-charcoal/40">@ {booking.scheduled_time}</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 text-charcoal/60">
                         <MapPin className="w-4 h-4" />
@@ -302,6 +305,12 @@ const Bookings = () => {
                   <p className="font-inter font-medium text-charcoal">{formatDate(selectedBooking.scheduled_date)}</p>
                 </div>
                 <div>
+                  <p className="text-xs text-charcoal/50 mb-1">Scheduled Time</p>
+                  <p className="font-inter font-medium text-charcoal">
+                    {selectedBooking.scheduled_time || 'Not specified'}
+                  </p>
+                </div>
+                <div>
                   <p className="text-xs text-charcoal/50 mb-1">Frequency</p>
                   <p className="font-inter font-medium text-charcoal capitalize">{selectedBooking.frequency || 'One-time'}</p>
                 </div>
@@ -315,6 +324,12 @@ const Bookings = () => {
                   <p className="text-xs text-charcoal/50 mb-1">Price</p>
                   <p className="font-inter font-medium text-charcoal">{formatPrice(selectedBooking.first_clean_price)}</p>
                 </div>
+                {selectedBooking.cal_booking_id && (
+                  <div>
+                    <p className="text-xs text-charcoal/50 mb-1">Cal.com Booking</p>
+                    <p className="font-inter text-sm text-sage">{selectedBooking.cal_booking_id}</p>
+                  </div>
+                )}
               </div>
 
               {/* Cleaner Assignment */}
