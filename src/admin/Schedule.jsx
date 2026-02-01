@@ -1,191 +1,161 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { 
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  RefreshCw,
+  ChevronLeft, 
+  ChevronRight, 
+  Calendar,
+  Clock,
   MapPin,
   User,
-  Clock,
-  Printer,
-  Filter,
-  Phone
+  AlertTriangle,
+  CheckCircle,
+  RefreshCw,
+  Filter
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { formatPrice } from '../utils/pricingLogic';
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const FULL_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const Schedule = () => {
-  const [bookings, setBookings] = useState([]);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [view, setView] = useState('week'); // 'day' | 'week' | 'month'
+  const [jobs, setJobs] = useState([]);
   const [cleaners, setCleaners] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedCleaner, setSelectedCleaner] = useState('all');
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const printRef = useRef();
+  const [selectedJob, setSelectedJob] = useState(null);
+
+  // Get date range based on view
+  const dateRange = useMemo(() => {
+    const start = new Date(currentDate);
+    const end = new Date(currentDate);
+    
+    if (view === 'day') {
+      return { start, end };
+    } else if (view === 'week') {
+      start.setDate(start.getDate() - start.getDay());
+      end.setDate(start.getDate() + 6);
+      return { start, end };
+    } else {
+      start.setDate(1);
+      end.setMonth(end.getMonth() + 1);
+      end.setDate(0);
+      return { start, end };
+    }
+  }, [currentDate, view]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [dateRange]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [bookingsRes, cleanersRes] = await Promise.all([
+      const startStr = dateRange.start.toISOString().split('T')[0];
+      const endStr = dateRange.end.toISOString().split('T')[0];
+
+      const [jobsRes, cleanersRes] = await Promise.all([
         supabase
-          .from('bookings')
-          .select('*')
-          .in('status', ['confirmed', 'payment_initiated'])
-          .order('scheduled_date'),
+          .from('jobs')
+          .select(`
+            *,
+            customers (name, address, city, phone),
+            cleaners (name, phone)
+          `)
+          .gte('scheduled_date', startStr)
+          .lte('scheduled_date', endStr)
+          .not('status', 'in', '("cancelled","no_show")')
+          .order('scheduled_date')
+          .order('scheduled_time'),
         supabase
           .from('cleaners')
           .select('*')
           .eq('status', 'active')
       ]);
 
-      setBookings(bookingsRes.data || []);
+      setJobs(jobsRes.data || []);
       setCleaners(cleanersRes.data || []);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching schedule:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Calendar helpers
-  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
-
-  const calendarDays = useMemo(() => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const daysInMonth = getDaysInMonth(year, month);
-    const firstDay = getFirstDayOfMonth(year, month);
-    
-    const days = [];
-    
-    // Previous month padding
-    const prevMonth = month === 0 ? 11 : month - 1;
-    const prevYear = month === 0 ? year - 1 : year;
-    const daysInPrevMonth = getDaysInMonth(prevYear, prevMonth);
-    
-    for (let i = firstDay - 1; i >= 0; i--) {
-      days.push({ date: new Date(prevYear, prevMonth, daysInPrevMonth - i), isCurrentMonth: false });
+  const navigate = (direction) => {
+    const newDate = new Date(currentDate);
+    if (view === 'day') {
+      newDate.setDate(newDate.getDate() + direction);
+    } else if (view === 'week') {
+      newDate.setDate(newDate.getDate() + (direction * 7));
+    } else {
+      newDate.setMonth(newDate.getMonth() + direction);
     }
-    
-    // Current month
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push({ date: new Date(year, month, i), isCurrentMonth: true });
-    }
-    
-    // Next month padding
-    const remainingDays = 42 - days.length;
-    for (let i = 1; i <= remainingDays; i++) {
-      const nextMonth = month === 11 ? 0 : month + 1;
-      const nextYear = month === 11 ? year + 1 : year;
-      days.push({ date: new Date(nextYear, nextMonth, i), isCurrentMonth: false });
-    }
-    
-    return days;
-  }, [currentDate]);
-
-  const getBookingsForDate = (date) => {
-    const dateStr = date.toISOString().split('T')[0];
-    return bookings.filter((booking) => {
-      const bookingDate = booking.scheduled_date?.split('T')[0];
-      const matchesDate = bookingDate === dateStr;
-      const matchesCleaner = selectedCleaner === 'all' || booking.cleaner_id === selectedCleaner;
-      return matchesDate && matchesCleaner;
-    });
+    setCurrentDate(newDate);
   };
 
-  const getCleanerName = (cleanerId) => {
-    const cleaner = cleaners.find((c) => c.id === cleanerId);
-    return cleaner?.name?.split(' ')[0] || 'Unassigned';
+  const goToToday = () => {
+    setCurrentDate(new Date());
   };
 
-  const assignCleaner = async (bookingId, cleanerId) => {
+  const assignCleaner = async (jobId, cleanerId) => {
     try {
       await supabase
-        .from('bookings')
-        .update({ cleaner_id: cleanerId })
-        .eq('id', bookingId);
+        .from('jobs')
+        .update({ cleaner_id: cleanerId, status: 'confirmed' })
+        .eq('id', jobId);
+      
+      await supabase.from('activity_log').insert({
+        entity_type: 'job',
+        entity_id: jobId,
+        action: 'assigned',
+        actor_type: 'admin',
+        details: { cleaner_id: cleanerId }
+      });
 
-      setBookings(prev => prev.map(b =>
-        b.id === bookingId ? { ...b, cleaner_id: cleanerId } : b
-      ));
-      setShowAssignModal(false);
-      setSelectedBooking(null);
+      fetchData();
+      setSelectedJob(null);
     } catch (error) {
       console.error('Error assigning cleaner:', error);
     }
   };
 
-  const goToPreviousMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-  const goToNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-  const goToToday = () => setCurrentDate(new Date());
-  const isToday = (date) => date.toDateString() === new Date().toDateString();
+  const getJobsByDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return jobs.filter(j => j.scheduled_date === dateStr);
+  };
 
-  // Print schedule for a week
-  const handlePrint = () => {
-    const startOfWeek = new Date(currentDate);
-    startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
-    
-    const weekBookings = [];
-    for (let i = 0; i < 7; i++) {
-      const day = new Date(startOfWeek);
-      day.setDate(startOfWeek.getDate() + i);
-      const dayBookings = getBookingsForDate(day);
-      if (dayBookings.length > 0) {
-        weekBookings.push({ date: day, bookings: dayBookings });
-      }
+  const formatDateHeader = () => {
+    if (view === 'day') {
+      return currentDate.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        month: 'long', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    } else if (view === 'week') {
+      return `${dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    } else {
+      return currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     }
+  };
 
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Weekly Schedule - Willow & Water</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          h1 { color: #36454F; margin-bottom: 5px; }
-          h2 { color: #71797E; font-size: 14px; margin-top: 0; }
-          .day { margin-bottom: 20px; page-break-inside: avoid; }
-          .day-header { background: #71797E; color: white; padding: 8px 12px; font-weight: bold; }
-          .booking { border: 1px solid #ddd; padding: 10px; margin-top: 5px; }
-          .booking-name { font-weight: bold; color: #36454F; }
-          .booking-details { font-size: 12px; color: #666; margin-top: 5px; }
-          @media print { body { padding: 0; } }
-        </style>
-      </head>
-      <body>
-        <h1>Willow & Water - Weekly Schedule</h1>
-        <h2>Week of ${startOfWeek.toLocaleDateString()}</h2>
-        ${weekBookings.map(({ date, bookings }) => `
-          <div class="day">
-            <div class="day-header">${date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-            ${bookings.map(b => `
-              <div class="booking">
-                <div class="booking-name">${b.name}</div>
-                <div class="booking-details">
-                  📍 ${b.address || 'No address'}<br>
-                  📞 ${b.phone || 'No phone'}<br>
-                  🏠 ${b.sqft} sqft • ${b.bedrooms}bd/${b.bathrooms}ba<br>
-                  👤 Cleaner: ${getCleanerName(b.cleaner_id)}
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        `).join('')}
-        ${weekBookings.length === 0 ? '<p>No bookings scheduled for this week.</p>' : ''}
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+  // Generate week days
+  const weekDays = useMemo(() => {
+    const days = [];
+    const start = new Date(dateRange.start);
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(start);
+      day.setDate(start.getDate() + i);
+      days.push(day);
+    }
+    return days;
+  }, [dateRange]);
+
+  const isToday = (date) => {
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
   };
 
   if (loading) {
@@ -205,212 +175,375 @@ const Schedule = () => {
             Schedule
           </h1>
           <p className="text-charcoal/60 font-inter mt-1">
-            Calendar view of all bookings
+            {jobs.length} job{jobs.length !== 1 ? 's' : ''} scheduled
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={handlePrint} className="btn-secondary flex items-center gap-2">
-            <Printer className="w-4 h-4" />
-            Print Week
-          </button>
-          <button onClick={fetchData} className="btn-secondary flex items-center gap-2">
+          <button onClick={fetchData} className="btn-secondary">
             <RefreshCw className="w-4 h-4" />
-            Refresh
           </button>
         </div>
       </div>
 
-      {/* Calendar Controls */}
+      {/* View Controls */}
       <div className="bg-white rounded-2xl shadow-sm border border-charcoal/5 p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <button onClick={goToPreviousMonth} className="p-2 hover:bg-bone rounded-lg transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {/* Navigation */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-2 hover:bg-charcoal/5 rounded-lg transition-colors"
+            >
               <ChevronLeft className="w-5 h-5 text-charcoal" />
             </button>
-            <h2 className="font-playfair text-xl font-semibold text-charcoal min-w-[200px] text-center">
-              {MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
-            </h2>
-            <button onClick={goToNextMonth} className="p-2 hover:bg-bone rounded-lg transition-colors">
-              <ChevronRight className="w-5 h-5 text-charcoal" />
-            </button>
-            <button onClick={goToToday} className="px-3 py-1.5 text-sm font-inter text-sage hover:bg-sage/10 rounded-lg transition-colors">
+            <button
+              onClick={goToToday}
+              className="px-3 py-1.5 text-sm font-inter font-medium text-sage 
+                         hover:bg-sage/10 rounded-lg transition-colors"
+            >
               Today
             </button>
+            <button
+              onClick={() => navigate(1)}
+              className="p-2 hover:bg-charcoal/5 rounded-lg transition-colors"
+            >
+              <ChevronRight className="w-5 h-5 text-charcoal" />
+            </button>
+            <span className="ml-2 font-playfair font-semibold text-charcoal">
+              {formatDateHeader()}
+            </span>
           </div>
 
-          <div className="relative">
+          {/* View Toggle */}
+          <div className="flex items-center bg-charcoal/5 rounded-lg p-1">
+            {['day', 'week', 'month'].map(v => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`
+                  px-4 py-1.5 text-sm font-inter font-medium rounded-md capitalize transition-all
+                  ${view === v ? 'bg-white text-charcoal shadow-sm' : 'text-charcoal/60 hover:text-charcoal'}
+                `}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Week View */}
+      {view === 'week' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-charcoal/5 overflow-hidden">
+          {/* Day Headers */}
+          <div className="grid grid-cols-7 border-b border-charcoal/10">
+            {weekDays.map((day, idx) => (
+              <div
+                key={idx}
+                className={`p-3 text-center border-r border-charcoal/5 last:border-r-0
+                  ${isToday(day) ? 'bg-sage/5' : ''}
+                `}
+              >
+                <p className="text-xs text-charcoal/50 font-inter">{DAY_NAMES[day.getDay()]}</p>
+                <p className={`text-lg font-semibold ${isToday(day) ? 'text-sage' : 'text-charcoal'}`}>
+                  {day.getDate()}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Job Grid */}
+          <div className="grid grid-cols-7 min-h-[400px]">
+            {weekDays.map((day, idx) => {
+              const dayJobs = getJobsByDate(day);
+              const morningJobs = dayJobs.filter(j => j.scheduled_time === 'morning');
+              const afternoonJobs = dayJobs.filter(j => j.scheduled_time === 'afternoon');
+
+              return (
+                <div
+                  key={idx}
+                  className={`border-r border-charcoal/5 last:border-r-0 p-2 space-y-2
+                    ${isToday(day) ? 'bg-sage/5' : ''}
+                    ${day.getDay() === 0 || day.getDay() === 6 ? 'bg-charcoal/5' : ''}
+                  `}
+                >
+                  {morningJobs.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-charcoal/40 font-inter">Morning</p>
+                      {morningJobs.map(job => (
+                        <JobCard key={job.id} job={job} onClick={() => setSelectedJob(job)} />
+                      ))}
+                    </div>
+                  )}
+                  {afternoonJobs.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-charcoal/40 font-inter">Afternoon</p>
+                      {afternoonJobs.map(job => (
+                        <JobCard key={job.id} job={job} onClick={() => setSelectedJob(job)} />
+                      ))}
+                    </div>
+                  )}
+                  {dayJobs.length === 0 && (
+                    <p className="text-xs text-charcoal/30 text-center py-4">No jobs</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Day View */}
+      {view === 'day' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-charcoal/5 overflow-hidden">
+          <div className="divide-y divide-charcoal/5">
+            {['morning', 'afternoon'].map(timeSlot => {
+              const slotJobs = jobs.filter(j => 
+                j.scheduled_date === currentDate.toISOString().split('T')[0] &&
+                j.scheduled_time === timeSlot
+              );
+
+              return (
+                <div key={timeSlot} className="p-4">
+                  <h3 className="font-inter font-semibold text-charcoal capitalize mb-3">
+                    {timeSlot} ({timeSlot === 'morning' ? '9am - 12pm' : '1pm - 5pm'})
+                  </h3>
+                  {slotJobs.length > 0 ? (
+                    <div className="space-y-3">
+                      {slotJobs.map(job => (
+                        <div
+                          key={job.id}
+                          onClick={() => setSelectedJob(job)}
+                          className="p-4 bg-bone/50 rounded-xl cursor-pointer hover:bg-bone transition-colors"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-inter font-semibold text-charcoal">
+                                {job.customers?.name}
+                              </p>
+                              <p className="text-sm text-charcoal/60 flex items-center gap-1 mt-1">
+                                <MapPin className="w-4 h-4" />
+                                {job.customers?.city}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              {job.cleaner_id ? (
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                                  {job.cleaners?.name}
+                                </span>
+                              ) : (
+                                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  Unassigned
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-charcoal/40 text-sm">No jobs scheduled</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Month View */}
+      {view === 'month' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-charcoal/5 overflow-hidden">
+          <div className="grid grid-cols-7 border-b border-charcoal/10">
+            {DAY_NAMES.map(day => (
+              <div key={day} className="p-2 text-center text-xs font-inter font-medium text-charcoal/50">
+                {day}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {(() => {
+              const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+              const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+              const cells = [];
+              
+              // Padding for first week
+              for (let i = 0; i < firstDay.getDay(); i++) {
+                cells.push(<div key={`pad-${i}`} className="p-2 min-h-[80px] bg-charcoal/5" />);
+              }
+              
+              // Days of month
+              for (let day = 1; day <= lastDay.getDate(); day++) {
+                const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                const dayJobs = getJobsByDate(date);
+                
+                cells.push(
+                  <div
+                    key={day}
+                    className={`p-2 min-h-[80px] border-b border-r border-charcoal/5
+                      ${isToday(date) ? 'bg-sage/5' : ''}
+                      ${date.getDay() === 0 || date.getDay() === 6 ? 'bg-charcoal/5' : ''}
+                    `}
+                  >
+                    <p className={`text-sm font-medium mb-1 ${isToday(date) ? 'text-sage' : 'text-charcoal'}`}>
+                      {day}
+                    </p>
+                    {dayJobs.slice(0, 2).map(job => (
+                      <div
+                        key={job.id}
+                        onClick={() => setSelectedJob(job)}
+                        className={`text-xs p-1 rounded mb-1 truncate cursor-pointer
+                          ${job.cleaner_id ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}
+                        `}
+                      >
+                        {job.customers?.name?.split(' ')[0]}
+                      </div>
+                    ))}
+                    {dayJobs.length > 2 && (
+                      <p className="text-xs text-charcoal/50">+{dayJobs.length - 2} more</p>
+                    )}
+                  </div>
+                );
+              }
+              
+              return cells;
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* Job Detail Modal */}
+      {selectedJob && (
+        <JobDetailModal
+          job={selectedJob}
+          cleaners={cleaners}
+          onClose={() => setSelectedJob(null)}
+          onAssign={assignCleaner}
+        />
+      )}
+    </div>
+  );
+};
+
+// Job Card Component
+const JobCard = ({ job, onClick }) => (
+  <div
+    onClick={onClick}
+    className={`p-2 rounded-lg text-xs cursor-pointer transition-colors
+      ${job.cleaner_id 
+        ? 'bg-green-50 hover:bg-green-100 border border-green-200' 
+        : 'bg-yellow-50 hover:bg-yellow-100 border border-yellow-200'
+      }
+    `}
+  >
+    <p className="font-medium text-charcoal truncate">{job.customers?.name}</p>
+    <p className="text-charcoal/60 truncate">{job.customers?.city}</p>
+    {job.cleaner_id ? (
+      <p className="text-green-600 mt-1">{job.cleaners?.name}</p>
+    ) : (
+      <p className="text-yellow-600 mt-1 flex items-center gap-1">
+        <AlertTriangle className="w-3 h-3" />
+        Unassigned
+      </p>
+    )}
+  </div>
+);
+
+// Job Detail Modal
+const JobDetailModal = ({ job, cleaners, onClose, onAssign }) => {
+  const [selectedCleaner, setSelectedCleaner] = useState(job.cleaner_id || '');
+
+  const handleAssign = () => {
+    if (selectedCleaner) {
+      onAssign(job.id, selectedCleaner);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-charcoal/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="p-6 border-b border-charcoal/10">
+          <h2 className="font-playfair text-xl font-semibold text-charcoal">Job Details</h2>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Customer Info */}
+          <div>
+            <h3 className="text-sm text-charcoal/50 mb-1">Customer</h3>
+            <p className="font-inter font-semibold text-charcoal">{job.customers?.name}</p>
+            <p className="text-sm text-charcoal/60">{job.customers?.address}</p>
+            <p className="text-sm text-charcoal/60">{job.customers?.city}</p>
+            {job.customers?.phone && (
+              <a href={`tel:${job.customers.phone}`} className="text-sm text-sage hover:underline">
+                {job.customers.phone}
+              </a>
+            )}
+          </div>
+
+          {/* Schedule */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-sage" />
+              <span className="text-sm text-charcoal">
+                {new Date(job.scheduled_date).toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric'
+                })}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-sage" />
+              <span className="text-sm text-charcoal capitalize">
+                {job.scheduled_time}
+              </span>
+            </div>
+          </div>
+
+          {/* Price */}
+          <div className="bg-sage/5 rounded-xl p-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-charcoal/60">Job Price</span>
+              <span className="font-semibold text-charcoal">{formatPrice(job.final_price)}</span>
+            </div>
+          </div>
+
+          {/* Cleaner Assignment */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal mb-2">
+              Assign Cleaner
+            </label>
             <select
               value={selectedCleaner}
               onChange={(e) => setSelectedCleaner(e.target.value)}
-              className="appearance-none pl-4 pr-10 py-2 bg-bone/50 border border-charcoal/10 rounded-xl
-                         font-inter text-sm focus:outline-none focus:ring-2 focus:ring-sage"
+              className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                         focus:outline-none focus:ring-2 focus:ring-sage"
             >
-              <option value="all">All Cleaners</option>
-              {cleaners.map((cleaner) => (
-                <option key={cleaner.id} value={cleaner.id}>{cleaner.name}</option>
+              <option value="">Select a cleaner...</option>
+              {cleaners.map(cleaner => (
+                <option key={cleaner.id} value={cleaner.id}>
+                  {cleaner.name}
+                </option>
               ))}
             </select>
-            <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/40 pointer-events-none" />
           </div>
         </div>
-      </div>
 
-      {/* Calendar Grid */}
-      <div className="bg-white rounded-2xl shadow-sm border border-charcoal/5 overflow-hidden">
-        {/* Day Headers */}
-        <div className="grid grid-cols-7 bg-bone/50 border-b border-charcoal/10">
-          {DAYS.map((day) => (
-            <div key={day} className="px-2 py-3 text-center font-inter text-sm font-semibold text-charcoal">
-              {day}
-            </div>
-          ))}
-        </div>
-
-        {/* Calendar Days */}
-        <div className="grid grid-cols-7">
-          {calendarDays.map((day, index) => {
-            const dayBookings = getBookingsForDate(day.date);
-            const isPast = day.date < new Date().setHours(0, 0, 0, 0);
-
-            return (
-              <div
-                key={index}
-                className={`min-h-[100px] border-b border-r border-charcoal/5 p-2 
-                  ${!day.isCurrentMonth ? 'bg-bone/30' : ''}
-                  ${isToday(day.date) ? 'bg-sage/5' : ''}
-                  ${isPast && day.isCurrentMonth ? 'opacity-60' : ''}
-                `}
-              >
-                <div className={`
-                  inline-flex items-center justify-center w-7 h-7 rounded-full font-inter text-sm mb-1
-                  ${isToday(day.date) ? 'bg-sage text-white font-semibold' : ''}
-                  ${!day.isCurrentMonth ? 'text-charcoal/30' : 'text-charcoal'}
-                `}>
-                  {day.date.getDate()}
-                </div>
-
-                <div className="space-y-1">
-                  {dayBookings.slice(0, 3).map((booking) => (
-                    <button
-                      key={booking.id}
-                      onClick={() => setSelectedBooking(booking)}
-                      className={`w-full text-left px-2 py-1 rounded text-xs font-inter transition-colors
-                        ${booking.cleaner_id 
-                          ? 'bg-sage/10 text-sage hover:bg-sage/20' 
-                          : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                        }
-                      `}
-                    >
-                      {booking.scheduled_time && (
-                        <div className="text-[10px] opacity-70">{booking.scheduled_time}</div>
-                      )}
-                      <div className="font-medium truncate">{booking.name}</div>
-                    </button>
-                  ))}
-                  {dayBookings.length > 3 && (
-                    <p className="text-xs text-charcoal/50 font-inter px-2">
-                      +{dayBookings.length - 3} more
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        <div className="p-6 border-t border-charcoal/10 flex gap-3">
+          <button onClick={onClose} className="btn-secondary flex-1">
+            Close
+          </button>
+          <button
+            onClick={handleAssign}
+            disabled={!selectedCleaner}
+            className="btn-primary flex-1 disabled:opacity-50"
+          >
+            {job.cleaner_id ? 'Reassign' : 'Assign'} Cleaner
+          </button>
         </div>
       </div>
-
-      {/* Legend */}
-      <div className="flex items-center gap-6 text-sm font-inter">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-sage/10 border border-sage/30" />
-          <span className="text-charcoal/70">Assigned</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-yellow-100 border border-yellow-300" />
-          <span className="text-charcoal/70">Needs Assignment</span>
-        </div>
-      </div>
-
-      {/* Booking Detail Modal */}
-      {selectedBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-charcoal/50" onClick={() => setSelectedBooking(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="p-6 border-b border-charcoal/10">
-              <h2 className="font-playfair text-lg font-semibold text-charcoal">{selectedBooking.name}</h2>
-              <p className="text-sm text-charcoal/50">
-                {new Date(selectedBooking.scheduled_date).toLocaleDateString('en-US', {
-                  weekday: 'long', month: 'long', day: 'numeric'
-                })}
-                {selectedBooking.scheduled_time && (
-                  <span className="ml-2 font-medium text-charcoal">@ {selectedBooking.scheduled_time}</span>
-                )}
-              </p>
-            </div>
-            <div className="p-6 space-y-3">
-              <div className="flex items-center gap-3 text-sm">
-                <MapPin className="w-4 h-4 text-charcoal/40" />
-                <span className="text-charcoal">{selectedBooking.address || 'No address'}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Phone className="w-4 h-4 text-charcoal/40" />
-                <a href={`tel:${selectedBooking.phone}`} className="text-sage hover:underline">
-                  {selectedBooking.phone || 'No phone'}
-                </a>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <User className="w-4 h-4 text-charcoal/40" />
-                <span className={selectedBooking.cleaner_id ? 'text-charcoal' : 'text-yellow-600'}>
-                  {getCleanerName(selectedBooking.cleaner_id)}
-                </span>
-                <button
-                  onClick={() => setShowAssignModal(true)}
-                  className="text-sage text-xs hover:underline ml-auto"
-                >
-                  {selectedBooking.cleaner_id ? 'Change' : 'Assign'}
-                </button>
-              </div>
-            </div>
-            <div className="p-6 border-t border-charcoal/10">
-              <button onClick={() => setSelectedBooking(null)} className="btn-secondary w-full">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Assign Modal */}
-      {showAssignModal && selectedBooking && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-charcoal/50" onClick={() => setShowAssignModal(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-            <div className="p-6 border-b border-charcoal/10">
-              <h2 className="font-playfair text-lg font-semibold text-charcoal">Assign Cleaner</h2>
-            </div>
-            <div className="p-6 space-y-2">
-              {cleaners.map((cleaner) => (
-                <button
-                  key={cleaner.id}
-                  onClick={() => assignCleaner(selectedBooking.id, cleaner.id)}
-                  className={`w-full p-3 rounded-xl border text-left transition-colors ${
-                    selectedBooking.cleaner_id === cleaner.id
-                      ? 'border-sage bg-sage/5'
-                      : 'border-charcoal/10 hover:border-sage/50'
-                  }`}
-                >
-                  <p className="font-inter font-medium text-charcoal">{cleaner.name}</p>
-                </button>
-              ))}
-            </div>
-            <div className="p-6 border-t border-charcoal/10">
-              <button onClick={() => setShowAssignModal(false)} className="btn-secondary w-full">
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

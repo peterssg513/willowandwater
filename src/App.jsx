@@ -17,18 +17,18 @@ import BlogList from './components/BlogList';
 import BlogPost from './components/BlogPost';
 import StickyMobileCTA from './components/StickyMobileCTA';
 import ExitIntentPopup from './components/ExitIntentPopup';
-import AbandonedBookingRecovery from './components/AbandonedBookingRecovery';
 
 // Admin imports
 import AdminLogin from './admin/AdminLogin';
 import AdminLayout from './admin/AdminLayout';
 import Dashboard from './admin/Dashboard';
-import Leads from './admin/Leads';
-import Bookings from './admin/Bookings';
-import Schedule from './admin/Schedule';
 import Customers from './admin/Customers';
+import CustomerDetail from './admin/CustomerDetail';
+import Schedule from './admin/Schedule';
+import Cleaners from './admin/Cleaners';
 import Inventory from './admin/Inventory';
-import Messages from './admin/Messages';
+import Communications from './admin/Communications';
+import Payments from './admin/Payments';
 
 // Service area data
 import { SERVICE_AREA_LIST, getPrimaryServiceAreas, getServiceAreasByTier } from './data/serviceAreas';
@@ -84,7 +84,6 @@ function HomePage() {
       {/* Conversion Optimization Components */}
       <StickyMobileCTA />
       <ExitIntentPopup />
-      <AbandonedBookingRecovery />
 
       {/* Footer */}
       <footer className="bg-charcoal py-12">
@@ -224,12 +223,13 @@ function App() {
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Dashboard />} />
-        <Route path="leads" element={<Leads />} />
-        <Route path="bookings" element={<Bookings />} />
-        <Route path="schedule" element={<Schedule />} />
         <Route path="customers" element={<Customers />} />
+        <Route path="customers/:id" element={<CustomerDetail />} />
+        <Route path="schedule" element={<Schedule />} />
+        <Route path="cleaners" element={<Cleaners />} />
         <Route path="inventory" element={<Inventory />} />
-        <Route path="messages" element={<Messages />} />
+        <Route path="communications" element={<Communications />} />
+        <Route path="payments" element={<Payments />} />
       </Route>
       
       {/* Fallback to home for unknown routes */}

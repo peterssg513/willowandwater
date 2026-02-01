@@ -1,55 +1,56 @@
 import { useState, useEffect } from 'react';
-import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
-  LogOut, 
-  Menu, 
-  X,
-  Loader2,
-  UserPlus,
-  CalendarDays,
-  Calendar,
-  Users,
+  Users, 
+  CalendarDays, 
+  UserCog,
   Package,
-  MessageSquare
+  MessageSquare,
+  DollarSign,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+  Leaf
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 const AdminLayout = () => {
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [adminUser, setAdminUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Check authentication on mount
   useEffect(() => {
     checkAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || !session) {
-        navigate('/admin/login');
-      } else {
-        setUser(session.user);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
 
   const checkAuth = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (!session) {
+      if (!user) {
         navigate('/admin/login');
         return;
       }
-      
-      setUser(session.user);
+
+      setUser(user);
+
+      // Get admin user details
+      const { data: adminData } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (adminData) {
+        setAdminUser(adminData);
+      }
     } catch (error) {
-      console.error('Auth check error:', error);
+      console.error('Auth error:', error);
       navigate('/admin/login');
     } finally {
       setLoading(false);
@@ -63,29 +64,40 @@ const AdminLayout = () => {
 
   // Navigation items
   const navItems = [
-    { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-    { name: 'Leads', href: '/admin/leads', icon: UserPlus },
-    { name: 'Bookings', href: '/admin/bookings', icon: CalendarDays },
-    { name: 'Schedule', href: '/admin/schedule', icon: Calendar },
-    { name: 'Customers', href: '/admin/customers', icon: Users },
-    { name: 'Inventory', href: '/admin/inventory', icon: Package },
-    { name: 'Messages', href: '/admin/messages', icon: MessageSquare },
+    { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
+    { path: '/admin/customers', icon: Users, label: 'Customers' },
+    { path: '/admin/schedule', icon: CalendarDays, label: 'Schedule' },
+    { path: '/admin/cleaners', icon: UserCog, label: 'Cleaners' },
+    { path: '/admin/inventory', icon: Package, label: 'Inventory' },
+    { path: '/admin/communications', icon: MessageSquare, label: 'Communications' },
   ];
+
+  // Owner-only items
+  const ownerItems = [
+    { path: '/admin/payments', icon: DollarSign, label: 'Payments' },
+    { path: '/admin/settings', icon: Settings, label: 'Settings' },
+  ];
+
+  const isOwner = adminUser?.role === 'owner';
+
+  const isActive = (path) => {
+    if (path === '/admin') {
+      return location.pathname === '/admin';
+    }
+    return location.pathname.startsWith(path);
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-bone flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-sage mx-auto mb-4" />
-          <p className="text-charcoal/60 font-inter">Loading...</p>
-        </div>
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-sage border-t-transparent" />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-bone flex">
-      {/* Mobile sidebar backdrop */}
+      {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div 
           className="fixed inset-0 bg-charcoal/50 z-40 lg:hidden"
@@ -96,93 +108,138 @@ const AdminLayout = () => {
       {/* Sidebar */}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-50
-        w-64 bg-white border-r border-charcoal/10
-        transform transition-transform duration-200 ease-in-out
+        w-64 bg-charcoal flex flex-col
+        transform lg:transform-none transition-transform duration-200
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        flex flex-col
       `}>
         {/* Logo */}
-        <div className="p-6 border-b border-charcoal/10">
-          <Link to="/admin" className="block">
-            <h1 className="font-playfair text-xl font-semibold text-charcoal">
-              Willow & Water
-            </h1>
-            <p className="text-xs text-charcoal/50 font-inter mt-1">Admin Portal</p>
+        <div className="p-6 border-b border-white/10">
+          <Link to="/admin" className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-sage rounded-xl flex items-center justify-center">
+              <Leaf className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="font-playfair text-lg font-semibold text-bone">
+                Willow & Water
+              </h1>
+              <p className="text-xs text-bone/50 font-inter">Admin Portal</p>
+            </div>
           </Link>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.href || 
-              (item.href !== '/admin' && location.pathname.startsWith(item.href));
+          {navItems.map(item => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
             
             return (
               <Link
-                key={item.name}
-                to={item.href}
+                key={item.path}
+                to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl font-inter text-sm
-                  transition-colors
-                  ${isActive 
+                  transition-all duration-200
+                  ${active 
                     ? 'bg-sage text-white' 
-                    : 'text-charcoal/70 hover:bg-bone hover:text-charcoal'
+                    : 'text-bone/70 hover:bg-white/5 hover:text-bone'
                   }
                 `}
               >
-                <item.icon className="w-5 h-5" />
-                {item.name}
+                <Icon className="w-5 h-5" />
+                {item.label}
               </Link>
             );
           })}
+
+          {/* Owner Only Section */}
+          {isOwner && (
+            <>
+              <div className="pt-4 pb-2">
+                <p className="px-4 text-xs text-bone/30 uppercase tracking-wider font-inter">
+                  Owner Only
+                </p>
+              </div>
+              {ownerItems.map(item => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+                
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`
+                      flex items-center gap-3 px-4 py-3 rounded-xl font-inter text-sm
+                      transition-all duration-200
+                      ${active 
+                        ? 'bg-sage text-white' 
+                        : 'text-bone/70 hover:bg-white/5 hover:text-bone'
+                      }
+                    `}
+                  >
+                    <Icon className="w-5 h-5" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
-        {/* User & Logout */}
-        <div className="p-4 border-t border-charcoal/10">
-          <div className="flex items-center gap-3 px-4 py-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-sage/10 flex items-center justify-center">
-              <span className="font-inter font-semibold text-sage text-sm">
-                {user?.email?.[0]?.toUpperCase() || 'A'}
+        {/* User Section */}
+        <div className="p-4 border-t border-white/10">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-sage/20 rounded-full flex items-center justify-center">
+              <span className="text-sage font-semibold text-sm">
+                {adminUser?.name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-inter text-charcoal truncate">
-                {user?.email || 'Admin'}
+              <p className="text-sm font-medium text-bone truncate">
+                {adminUser?.name || 'Admin'}
+              </p>
+              <p className="text-xs text-bone/50 capitalize">
+                {adminUser?.role || 'user'}
               </p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-inter text-sm
-                       text-charcoal/70 hover:bg-red-50 hover:text-red-600 transition-colors"
+            className="flex items-center gap-2 w-full px-4 py-2 text-bone/70 hover:text-bone
+                       hover:bg-white/5 rounded-xl transition-colors font-inter text-sm"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-4 h-4" />
             Sign Out
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Bar */}
-        <header className="bg-white border-b border-charcoal/10 px-4 lg:px-8 py-4 flex items-center gap-4">
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden p-2 text-charcoal/70 hover:text-charcoal rounded-lg"
-          >
-            {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-
-          <div className="flex-1" />
+      <main className="flex-1 min-h-screen">
+        {/* Mobile Header */}
+        <header className="lg:hidden bg-white border-b border-charcoal/10 p-4 sticky top-0 z-30">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 hover:bg-charcoal/5 rounded-lg"
+            >
+              <Menu className="w-6 h-6 text-charcoal" />
+            </button>
+            <Link to="/admin" className="flex items-center gap-2">
+              <Leaf className="w-6 h-6 text-sage" />
+              <span className="font-playfair font-semibold text-charcoal">Admin</span>
+            </Link>
+            <div className="w-10" /> {/* Spacer */}
+          </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-8 overflow-auto">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
           <Outlet />
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 };

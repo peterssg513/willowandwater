@@ -1,9 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Leaf, Minus, Plus, Shield, Calendar } from 'lucide-react';
-import { calculateCleaningPrice, formatPrice } from '../utils/pricingLogic';
-import BookingFlow from './BookingFlow';
-import { saveBookingProgress } from './AbandonedBookingRecovery';
-import { trackConversion } from './Analytics';
+import { Leaf, Minus, Plus, Shield, Calendar, Clock } from 'lucide-react';
+import { 
+  calculateCleaningPrice, 
+  formatPrice, 
+  formatDuration,
+  getFrequencyBadge 
+} from '../utils/pricingLogic';
+import { BookingFlow } from './booking';
 
 const PricingCalculator = () => {
   // Form state (defaults to common Fox Valley home size)
@@ -19,38 +22,18 @@ const PricingCalculator = () => {
   const pricing = useMemo(() => {
     return calculateCleaningPrice({ sqft, bedrooms, bathrooms, frequency });
   }, [sqft, bedrooms, bathrooms, frequency]);
-  
-  // Quote data to pass to BookingFlow
-  const quoteData = {
-    sqft,
-    bedrooms,
-    bathrooms,
-    frequency,
-    recurringPrice: pricing.recurringPrice,
-    firstCleanPrice: pricing.firstCleanPrice,
-  };
 
-  // Save quote for abandoned booking recovery when user interacts
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      saveBookingProgress(quoteData);
-    }, 2000); // Save after 2 seconds of viewing
-    
-    return () => clearTimeout(timer);
-  }, [sqft, bedrooms, bathrooms, frequency, pricing]);
-
-  // Track when user opens booking flow
+  // Handle opening booking flow
   const handleOpenBooking = () => {
-    trackConversion.bookingStarted(quoteData);
     setIsBookingOpen(true);
   };
 
   // Frequency options
   const frequencyOptions = [
-    { id: 'weekly', label: 'Weekly', badge: '35% off', highlight: false },
-    { id: 'biweekly', label: 'Bi-Weekly', badge: 'Most Popular', highlight: true },
-    { id: 'monthly', label: 'Monthly', badge: '10% off', highlight: false },
-    { id: 'onetime', label: 'One-Time', badge: 'Deep Clean', highlight: false },
+    { id: 'weekly', label: 'Weekly' },
+    { id: 'biweekly', label: 'Bi-Weekly' },
+    { id: 'monthly', label: 'Monthly' },
+    { id: 'onetime', label: 'One-Time' },
   ];
 
   return (
@@ -141,32 +124,37 @@ const PricingCalculator = () => {
                 Cleaning Frequency
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {frequencyOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => setFrequency(option.id)}
-                    className={`relative p-4 rounded-xl border-2 transition-all duration-200
-                      ${frequency === option.id
-                        ? 'border-sage bg-sage/10'
-                        : 'border-charcoal/10 hover:border-sage/50 bg-white'
-                      }`}
-                  >
-                    {option.badge && (
-                      <span className={`absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 
-                        text-xs font-inter font-medium rounded-full whitespace-nowrap
-                        ${option.highlight 
-                          ? 'bg-sage text-bone' 
-                          : 'bg-sage/20 text-sage'
-                        }`}>
-                        {option.badge}
+                {frequencyOptions.map((option) => {
+                  const badge = getFrequencyBadge(option.id);
+                  const isSelected = frequency === option.id;
+                  
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => setFrequency(option.id)}
+                      className={`relative p-4 rounded-xl border-2 transition-all duration-200
+                        ${isSelected
+                          ? 'border-sage bg-sage/10'
+                          : 'border-charcoal/10 hover:border-sage/50 bg-white'
+                        }`}
+                    >
+                      {badge && (
+                        <span className={`absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 
+                          text-xs font-inter font-medium rounded-full whitespace-nowrap
+                          ${option.id === 'biweekly' 
+                            ? 'bg-sage text-bone' 
+                            : 'bg-sage/20 text-sage'
+                          }`}>
+                          {badge}
+                        </span>
+                      )}
+                      <span className={`block font-inter font-medium text-sm
+                        ${isSelected ? 'text-charcoal' : 'text-charcoal/70'}`}>
+                        {option.label}
                       </span>
-                    )}
-                    <span className={`block font-inter font-medium text-sm
-                      ${frequency === option.id ? 'text-charcoal' : 'text-charcoal/70'}`}>
-                      {option.label}
-                    </span>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -176,6 +164,14 @@ const PricingCalculator = () => {
 
           {/* Results Section */}
           <div>
+            {/* Duration Estimate */}
+            <div className="flex items-center justify-center gap-2 mb-6 text-charcoal/60">
+              <Clock className="w-4 h-4" />
+              <span className="font-inter text-sm">
+                Estimated duration: {formatDuration(pricing.firstCleanDuration)}
+              </span>
+            </div>
+
             {/* Price Cards */}
             <div className="grid sm:grid-cols-2 gap-4 mb-8">
               {/* First Clean Card */}
@@ -266,11 +262,11 @@ const PricingCalculator = () => {
         </div>
       </div>
       
-      {/* Multi-Step Booking Flow Modal */}
+      {/* Booking Flow Modal */}
       <BookingFlow 
         isOpen={isBookingOpen}
         onClose={() => setIsBookingOpen(false)}
-        quoteData={quoteData}
+        initialData={{ sqft, bedrooms, bathrooms, frequency }}
       />
     </section>
   );

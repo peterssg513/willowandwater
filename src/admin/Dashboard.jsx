@@ -1,31 +1,37 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
-  UserPlus, 
-  CalendarDays, 
   Users, 
+  CalendarDays, 
   DollarSign,
-  MessageSquare,
   AlertTriangle,
   ArrowRight,
   Package,
-  TrendingUp
+  TrendingUp,
+  UserPlus,
+  Clock,
+  Star,
+  MessageSquare,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { formatPrice } from '../utils/pricingLogic';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
-    leads: 0,
-    upcomingBookings: 0,
-    customers: 0,
-    unreadMessages: 0,
+    todayJobs: 0,
+    weekJobs: 0,
+    activeCustomers: 0,
+    prospects: 0,
+    monthRevenue: 0,
+    unassignedJobs: 0,
     lowStockItems: 0,
-    monthlyRevenue: 0,
-    unassignedBookings: 0
+    pendingPayments: 0,
   });
-  const [recentLeads, setRecentLeads] = useState([]);
-  const [upcomingBookings, setUpcomingBookings] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [todayJobs, setTodayJobs] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,57 +42,150 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const todayStr = today.toISOString().split('T')[0];
+      const weekEnd = new Date(today);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      const weekEndStr = weekEnd.toISOString().split('T')[0];
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
 
       // Fetch all data in parallel
       const [
-        leadsRes,
-        bookingsRes,
-        messagesRes,
-        inventoryRes
+        todayJobsRes,
+        weekJobsRes,
+        customersRes,
+        prospectsRes,
+        revenueRes,
+        unassignedRes,
+        inventoryRes,
+        pendingPaymentsRes,
+        activityRes,
+        lowRatingsRes,
       ] = await Promise.all([
-        supabase.from('bookings').select('*').eq('status', 'lead').order('created_at', { ascending: false }).limit(5),
-        supabase.from('bookings').select('*').in('status', ['confirmed', 'payment_initiated', 'completed']).order('scheduled_date', { ascending: true }),
-        supabase.from('messages').select('id').eq('status', 'unread'),
-        supabase.from('inventory').select('id').in('status', ['low_stock', 'out_of_stock'])
+        // Today's jobs
+        supabase
+          .from('jobs')
+          .select('*, customers(name, address, city, phone)')
+          .eq('scheduled_date', todayStr)
+          .not('status', 'in', '("cancelled","no_show")'),
+        // This week's jobs
+        supabase
+          .from('jobs')
+          .select('id')
+          .gte('scheduled_date', todayStr)
+          .lte('scheduled_date', weekEndStr)
+          .not('status', 'in', '("cancelled","no_show")'),
+        // Active customers
+        supabase
+          .from('customers')
+          .select('id')
+          .eq('status', 'active'),
+        // Prospects
+        supabase
+          .from('customers')
+          .select('id')
+          .eq('status', 'prospect'),
+        // Month revenue (completed jobs)
+        supabase
+          .from('jobs')
+          .select('final_price')
+          .gte('scheduled_date', monthStart)
+          .lte('scheduled_date', todayStr)
+          .eq('status', 'completed'),
+        // Unassigned jobs
+        supabase
+          .from('jobs')
+          .select('id')
+          .is('cleaner_id', null)
+          .gte('scheduled_date', todayStr)
+          .not('status', 'in', '("cancelled","no_show")'),
+        // Low stock inventory
+        supabase
+          .from('inventory')
+          .select('id')
+          .in('status', ['low_stock', 'out_of_stock']),
+        // Pending payments
+        supabase
+          .from('jobs')
+          .select('id')
+          .eq('payment_status', 'failed'),
+        // Recent activity
+        supabase
+          .from('activity_log')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(10),
+        // Low ratings (recent)
+        supabase
+          .from('jobs')
+          .select('id, customer_rating, customers(name)')
+          .lte('customer_rating', 3)
+          .not('customer_rating', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(3),
       ]);
 
-      const leads = leadsRes.data || [];
-      const bookings = bookingsRes.data || [];
-      const messages = messagesRes.data || [];
-      const lowStock = inventoryRes.data || [];
-
       // Calculate stats
-      const upcoming = bookings.filter(b => {
-        if (!b.scheduled_date) return false;
-        return new Date(b.scheduled_date) >= today;
-      });
-
-      const unassigned = upcoming.filter(b => !b.cleaner_id);
-
-      const uniqueCustomers = new Set(bookings.map(b => b.email?.toLowerCase()).filter(Boolean));
-
-      const monthRevenue = bookings
-        .filter(b => {
-          if (!b.scheduled_date) return false;
-          const date = new Date(b.scheduled_date);
-          return date >= startOfMonth && date <= today && b.status === 'completed';
-        })
-        .reduce((sum, b) => sum + (b.first_clean_price || 0), 0);
+      const monthRevenue = (revenueRes.data || [])
+        .reduce((sum, job) => sum + (job.final_price || 0), 0);
 
       setStats({
-        leads: leads.length,
-        upcomingBookings: upcoming.length,
-        customers: uniqueCustomers.size,
-        unreadMessages: messages.length,
-        lowStockItems: lowStock.length,
-        monthlyRevenue: monthRevenue,
-        unassignedBookings: unassigned.length
+        todayJobs: todayJobsRes.data?.length || 0,
+        weekJobs: weekJobsRes.data?.length || 0,
+        activeCustomers: customersRes.data?.length || 0,
+        prospects: prospectsRes.data?.length || 0,
+        monthRevenue,
+        unassignedJobs: unassignedRes.data?.length || 0,
+        lowStockItems: inventoryRes.data?.length || 0,
+        pendingPayments: pendingPaymentsRes.data?.length || 0,
       });
 
-      setRecentLeads(leads);
-      setUpcomingBookings(upcoming.slice(0, 5));
+      setTodayJobs(todayJobsRes.data || []);
+      setRecentActivity(activityRes.data || []);
+
+      // Build alerts
+      const newAlerts = [];
+      
+      if (unassignedRes.data?.length > 0) {
+        newAlerts.push({
+          type: 'warning',
+          icon: AlertTriangle,
+          title: `${unassignedRes.data.length} unassigned job${unassignedRes.data.length > 1 ? 's' : ''}`,
+          subtitle: 'Jobs need cleaner assignment',
+          link: '/admin/schedule',
+        });
+      }
+      
+      if (pendingPaymentsRes.data?.length > 0) {
+        newAlerts.push({
+          type: 'error',
+          icon: XCircle,
+          title: `${pendingPaymentsRes.data.length} failed payment${pendingPaymentsRes.data.length > 1 ? 's' : ''}`,
+          subtitle: 'Charges need attention',
+          link: '/admin/payments',
+        });
+      }
+      
+      if (inventoryRes.data?.length > 0) {
+        newAlerts.push({
+          type: 'warning',
+          icon: Package,
+          title: `${inventoryRes.data.length} item${inventoryRes.data.length > 1 ? 's' : ''} low on stock`,
+          subtitle: 'Supplies need reordering',
+          link: '/admin/inventory',
+        });
+      }
+      
+      if (lowRatingsRes.data?.length > 0) {
+        newAlerts.push({
+          type: 'info',
+          icon: Star,
+          title: `${lowRatingsRes.data.length} low rating${lowRatingsRes.data.length > 1 ? 's' : ''} to review`,
+          subtitle: 'Customer feedback needs attention',
+          link: '/admin/customers',
+        });
+      }
+
+      setAlerts(newAlerts);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -94,17 +193,51 @@ const Dashboard = () => {
     }
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(price || 0);
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return 'Not scheduled';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
+  const formatTime = (timeSlot) => {
+    return timeSlot === 'morning' ? '9am-12pm' : '1pm-5pm';
+  };
+
+  const getActivityIcon = (action) => {
+    switch (action) {
+      case 'created':
+      case 'booked':
+        return <UserPlus className="w-4 h-4 text-sage" />;
+      case 'completed':
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case 'cancelled':
+        return <XCircle className="w-4 h-4 text-red-500" />;
+      case 'payment_intent_created':
+      case 'remaining_charged':
+        return <DollarSign className="w-4 h-4 text-blue-500" />;
+      default:
+        return <Clock className="w-4 h-4 text-charcoal/50" />;
+    }
+  };
+
+  const getActivityText = (activity) => {
+    const entityType = activity.entity_type;
+    const action = activity.action;
+    
+    if (entityType === 'customer') {
+      if (action === 'created') return 'New customer signed up';
+      if (action === 'booking_started') return 'Customer started booking';
+    }
+    if (entityType === 'job') {
+      if (action === 'booked') return 'New cleaning booked';
+      if (action === 'completed') return 'Cleaning completed';
+      if (action === 'remaining_charged') return 'Payment processed';
+    }
+    return `${entityType} ${action}`;
   };
 
   if (loading) {
@@ -123,88 +256,90 @@ const Dashboard = () => {
           Dashboard
         </h1>
         <p className="text-charcoal/60 font-inter mt-1">
-          Welcome back! Here's what's happening.
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
       </div>
 
       {/* Alerts */}
-      {(stats.unassignedBookings > 0 || stats.lowStockItems > 0 || stats.unreadMessages > 0) && (
-        <div className="grid sm:grid-cols-3 gap-4">
-          {stats.unassignedBookings > 0 && (
-            <Link to="/admin/bookings" className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 hover:border-yellow-300 transition-colors">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-yellow-600" />
-                <div>
-                  <p className="font-inter font-medium text-yellow-800">
-                    {stats.unassignedBookings} unassigned
-                  </p>
-                  <p className="text-sm text-yellow-700">Bookings need cleaners</p>
+      {alerts.length > 0 && (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {alerts.map((alert, idx) => {
+            const Icon = alert.icon;
+            const bgColor = alert.type === 'error' ? 'bg-red-50 border-red-200' :
+                           alert.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
+                           'bg-blue-50 border-blue-200';
+            const textColor = alert.type === 'error' ? 'text-red-600' :
+                             alert.type === 'warning' ? 'text-yellow-600' :
+                             'text-blue-600';
+            
+            return (
+              <Link
+                key={idx}
+                to={alert.link}
+                className={`${bgColor} border rounded-xl p-4 hover:shadow-md transition-shadow`}
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className={`w-5 h-5 ${textColor}`} />
+                  <div>
+                    <p className={`font-inter font-medium ${textColor.replace('600', '800')}`}>
+                      {alert.title}
+                    </p>
+                    <p className={`text-sm ${textColor.replace('600', '700')}`}>
+                      {alert.subtitle}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </Link>
-          )}
-          {stats.lowStockItems > 0 && (
-            <Link to="/admin/inventory" className="bg-red-50 border border-red-200 rounded-xl p-4 hover:border-red-300 transition-colors">
-              <div className="flex items-center gap-3">
-                <Package className="w-5 h-5 text-red-600" />
-                <div>
-                  <p className="font-inter font-medium text-red-800">
-                    {stats.lowStockItems} low stock
-                  </p>
-                  <p className="text-sm text-red-700">Items need reordering</p>
-                </div>
-              </div>
-            </Link>
-          )}
-          {stats.unreadMessages > 0 && (
-            <Link to="/admin/messages" className="bg-blue-50 border border-blue-200 rounded-xl p-4 hover:border-blue-300 transition-colors">
-              <div className="flex items-center gap-3">
-                <MessageSquare className="w-5 h-5 text-blue-600" />
-                <div>
-                  <p className="font-inter font-medium text-blue-800">
-                    {stats.unreadMessages} new message{stats.unreadMessages !== 1 ? 's' : ''}
-                  </p>
-                  <p className="text-sm text-blue-700">From contact form</p>
-                </div>
-              </div>
-            </Link>
-          )}
+              </Link>
+            );
+          })}
         </div>
       )}
 
       {/* Stats Grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link to="/admin/leads" className="bg-white rounded-2xl shadow-sm border border-charcoal/5 p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-              <UserPlus className="w-6 h-6 text-yellow-600" />
-            </div>
-            <ArrowRight className="w-5 h-5 text-charcoal/30" />
-          </div>
-          <p className="text-3xl font-playfair font-semibold text-charcoal">{stats.leads}</p>
-          <p className="text-charcoal/60 font-inter text-sm">Active Leads</p>
-        </Link>
-
-        <Link to="/admin/bookings" className="bg-white rounded-2xl shadow-sm border border-charcoal/5 p-6 hover:shadow-md transition-shadow">
+        <Link
+          to="/admin/schedule"
+          className="bg-white rounded-2xl shadow-sm border border-charcoal/5 p-6 hover:shadow-md transition-shadow"
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-sage/10 rounded-xl flex items-center justify-center">
               <CalendarDays className="w-6 h-6 text-sage" />
             </div>
             <ArrowRight className="w-5 h-5 text-charcoal/30" />
           </div>
-          <p className="text-3xl font-playfair font-semibold text-charcoal">{stats.upcomingBookings}</p>
-          <p className="text-charcoal/60 font-inter text-sm">Upcoming Bookings</p>
+          <p className="text-3xl font-playfair font-semibold text-charcoal">{stats.todayJobs}</p>
+          <p className="text-charcoal/60 font-inter text-sm">Today's Jobs</p>
+          <p className="text-xs text-sage mt-1">{stats.weekJobs} this week</p>
         </Link>
 
-        <Link to="/admin/customers" className="bg-white rounded-2xl shadow-sm border border-charcoal/5 p-6 hover:shadow-md transition-shadow">
+        <Link
+          to="/admin/customers"
+          className="bg-white rounded-2xl shadow-sm border border-charcoal/5 p-6 hover:shadow-md transition-shadow"
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
               <Users className="w-6 h-6 text-blue-600" />
             </div>
             <ArrowRight className="w-5 h-5 text-charcoal/30" />
           </div>
-          <p className="text-3xl font-playfair font-semibold text-charcoal">{stats.customers}</p>
-          <p className="text-charcoal/60 font-inter text-sm">Total Customers</p>
+          <p className="text-3xl font-playfair font-semibold text-charcoal">{stats.activeCustomers}</p>
+          <p className="text-charcoal/60 font-inter text-sm">Active Customers</p>
+          <p className="text-xs text-blue-600 mt-1">{stats.prospects} prospects</p>
+        </Link>
+
+        <Link
+          to="/admin/cleaners"
+          className="bg-white rounded-2xl shadow-sm border border-charcoal/5 p-6 hover:shadow-md transition-shadow"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+              <UserPlus className="w-6 h-6 text-purple-600" />
+            </div>
+            <ArrowRight className="w-5 h-5 text-charcoal/30" />
+          </div>
+          <p className="text-3xl font-playfair font-semibold text-charcoal">{stats.unassignedJobs}</p>
+          <p className="text-charcoal/60 font-inter text-sm">Unassigned Jobs</p>
+          <p className="text-xs text-purple-600 mt-1">Needs assignment</p>
         </Link>
 
         <div className="bg-white rounded-2xl shadow-sm border border-charcoal/5 p-6">
@@ -213,67 +348,42 @@ const Dashboard = () => {
               <TrendingUp className="w-6 h-6 text-green-600" />
             </div>
           </div>
-          <p className="text-3xl font-playfair font-semibold text-charcoal">{formatPrice(stats.monthlyRevenue)}</p>
+          <p className="text-3xl font-playfair font-semibold text-charcoal">
+            {formatPrice(stats.monthRevenue)}
+          </p>
           <p className="text-charcoal/60 font-inter text-sm">This Month</p>
         </div>
       </div>
 
       {/* Two Column Layout */}
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Recent Leads */}
+        {/* Today's Jobs */}
         <div className="bg-white rounded-2xl shadow-sm border border-charcoal/5 overflow-hidden">
           <div className="p-6 border-b border-charcoal/10 flex items-center justify-between">
-            <h2 className="font-playfair text-lg font-semibold text-charcoal">Recent Leads</h2>
-            <Link to="/admin/leads" className="text-sage text-sm font-inter hover:underline">
+            <h2 className="font-playfair text-lg font-semibold text-charcoal">Today's Jobs</h2>
+            <Link to="/admin/schedule" className="text-sage text-sm font-inter hover:underline">
               View all →
             </Link>
           </div>
-          {recentLeads.length > 0 ? (
+          {todayJobs.length > 0 ? (
             <div className="divide-y divide-charcoal/5">
-              {recentLeads.map((lead) => (
-                <div key={lead.id} className="p-4 hover:bg-bone/50 transition-colors">
+              {todayJobs.map((job) => (
+                <div key={job.id} className="p-4 hover:bg-bone/50 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-inter font-medium text-charcoal">{lead.name}</p>
-                      <p className="text-sm text-charcoal/50">{lead.email}</p>
+                      <p className="font-inter font-medium text-charcoal">
+                        {job.customers?.name || 'Unknown'}
+                      </p>
+                      <p className="text-sm text-charcoal/50 truncate max-w-[200px]">
+                        {job.customers?.city || 'Unknown location'}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-inter font-medium text-charcoal">{formatPrice(lead.first_clean_price)}</p>
-                      <p className="text-xs text-charcoal/50">{lead.sqft?.toLocaleString()} sqft</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-8 text-center text-charcoal/50">
-              <UserPlus className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="font-inter text-sm">No leads yet</p>
-            </div>
-          )}
-        </div>
-
-        {/* Upcoming Bookings */}
-        <div className="bg-white rounded-2xl shadow-sm border border-charcoal/5 overflow-hidden">
-          <div className="p-6 border-b border-charcoal/10 flex items-center justify-between">
-            <h2 className="font-playfair text-lg font-semibold text-charcoal">Upcoming Bookings</h2>
-            <Link to="/admin/schedule" className="text-sage text-sm font-inter hover:underline">
-              View calendar →
-            </Link>
-          </div>
-          {upcomingBookings.length > 0 ? (
-            <div className="divide-y divide-charcoal/5">
-              {upcomingBookings.map((booking) => (
-                <div key={booking.id} className="p-4 hover:bg-bone/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-inter font-medium text-charcoal">{booking.name}</p>
-                      <p className="text-sm text-charcoal/50 truncate max-w-[200px]">{booking.address}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-inter font-medium text-charcoal">{formatDate(booking.scheduled_date)}</p>
-                      <p className={`text-xs ${booking.cleaner_id ? 'text-sage' : 'text-yellow-600'}`}>
-                        {booking.cleaner_id ? 'Assigned' : 'Needs cleaner'}
+                      <p className="font-inter font-medium text-charcoal">
+                        {formatTime(job.scheduled_time)}
+                      </p>
+                      <p className={`text-xs ${job.cleaner_id ? 'text-sage' : 'text-yellow-600'}`}>
+                        {job.cleaner_id ? 'Assigned' : 'Needs cleaner'}
                       </p>
                     </div>
                   </div>
@@ -283,7 +393,43 @@ const Dashboard = () => {
           ) : (
             <div className="p-8 text-center text-charcoal/50">
               <CalendarDays className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="font-inter text-sm">No upcoming bookings</p>
+              <p className="font-inter text-sm">No jobs scheduled for today</p>
+            </div>
+          )}
+        </div>
+
+        {/* Recent Activity */}
+        <div className="bg-white rounded-2xl shadow-sm border border-charcoal/5 overflow-hidden">
+          <div className="p-6 border-b border-charcoal/10 flex items-center justify-between">
+            <h2 className="font-playfair text-lg font-semibold text-charcoal">Recent Activity</h2>
+            <Link to="/admin/communications" className="text-sage text-sm font-inter hover:underline">
+              View all →
+            </Link>
+          </div>
+          {recentActivity.length > 0 ? (
+            <div className="divide-y divide-charcoal/5">
+              {recentActivity.slice(0, 6).map((activity) => (
+                <div key={activity.id} className="p-4 hover:bg-bone/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-bone flex items-center justify-center">
+                      {getActivityIcon(activity.action)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-inter text-sm text-charcoal">
+                        {getActivityText(activity)}
+                      </p>
+                      <p className="text-xs text-charcoal/50">
+                        {formatDate(activity.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-charcoal/50">
+              <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="font-inter text-sm">No recent activity</p>
             </div>
           )}
         </div>

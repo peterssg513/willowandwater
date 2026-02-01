@@ -1,236 +1,359 @@
 /**
- * Willow & Water Organic Cleaning - Pricing Engine
+ * Pricing Logic for Willow & Water v2.0
  * 
- * Pure pricing calculation logic for the cleaning service quote generator.
- * All functions are exported for independent testing.
- * 
- * Settings can be customized via the Admin Portal (/admin/pricing)
- * and are stored in localStorage under 'pricingSettings'.
+ * Handles all price calculations including:
+ * - Base cleaning price
+ * - Cleaning duration estimation
+ * - Add-ons
+ * - First clean vs recurring pricing
+ * - Deposit calculations
+ * - Discounts and credits
  */
 
 // ============================================
-// DEFAULT PRICING CONSTANTS
+// CONSTANTS
 // ============================================
-const DEFAULT_PRICING_CONSTANTS = {
-  BASE_LABOR_COST: 23.34,
-  SUPPLY_COST: 4.50,
-  TARGET_MARGIN: 0.42,
-  HOURLY_RATE: 48.50,
-  ORGANIC_BUFFER: 1.10,
-  EFFICIENCY_DISCOUNT: 0.15,
-  EFFICIENCY_THRESHOLD_HOURS: 4,
-  FIRST_CLEAN_PREMIUM: 100,
-  SQFT_BASE_HOURS: 1.0,
-  SQFT_PER_THOUSAND: 0.5,
-  BATHROOM_HOURS: 0.8,
-  BEDROOM_HOURS: 0.3,
+
+// Base rate per 500 sqft
+const BASE_RATE_PER_500_SQFT = 40;
+
+// Minimum prices
+const MIN_FIRST_CLEAN_PRICE = 150;
+const MIN_RECURRING_PRICE = 120;
+
+// First clean multiplier (deep clean)
+const FIRST_CLEAN_MULTIPLIER = 1.25;
+
+// Frequency discounts
+const FREQUENCY_DISCOUNTS = {
+  weekly: 0.35,     // 35% off
+  biweekly: 0.20,   // 20% off
+  monthly: 0.10,    // 10% off
+  onetime: 0,       // No discount
 };
 
-const DEFAULT_FREQUENCY_MULTIPLIERS = {
-  weekly: 0.65,
-  biweekly: 0.75,
-  monthly: 0.90,
-  onetime: 1.35,
+// Deposit percentage
+const DEPOSIT_PERCENTAGE = 0.20; // 20%
+
+// Cancellation fees
+const CANCELLATION_FEES = {
+  over_48h: 0,
+  '24_to_48h': 25,
+  under_24h: 'full', // Special value meaning full charge
 };
 
 // ============================================
-// LOAD CUSTOM SETTINGS FROM LOCALSTORAGE
+// DURATION CALCULATION
 // ============================================
-const getCustomSettings = () => {
-  try {
-    const saved = localStorage.getItem('pricingSettings');
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (e) {
-    console.error('Error loading custom pricing settings:', e);
+
+/**
+ * Calculate estimated cleaning duration in minutes
+ * 
+ * @param {Object} params
+ * @param {number} params.sqft - Square footage
+ * @param {number} params.bedrooms - Number of bedrooms
+ * @param {number} params.bathrooms - Number of bathrooms
+ * @param {boolean} params.isFirstClean - Whether this is a first/deep clean
+ * @param {Array} [params.addons] - Array of addon objects with duration_minutes
+ * @returns {number} Duration in minutes
+ */
+export function calculateCleaningDuration({ sqft, bedrooms, bathrooms, isFirstClean, addons = [] }) {
+  // Base time: 30 minutes per 500 sqft
+  let minutes = Math.ceil(sqft / 500) * 30;
+  
+  // Add 15 minutes per bathroom over 2
+  const extraBathrooms = Math.max(0, bathrooms - 2);
+  minutes += extraBathrooms * 15;
+  
+  // Add 10 minutes per bedroom over 3
+  const extraBedrooms = Math.max(0, bedrooms - 3);
+  minutes += extraBedrooms * 10;
+  
+  // First clean takes 1.5x longer
+  if (isFirstClean) {
+    minutes = Math.ceil(minutes * 1.5);
   }
-  return null;
-};
+  
+  // Add addon durations
+  const addonMinutes = addons.reduce((sum, addon) => sum + (addon.duration_minutes || 0), 0);
+  minutes += addonMinutes;
+  
+  // Round to nearest 30 minutes
+  return Math.ceil(minutes / 30) * 30;
+}
 
-// Get current pricing constants (custom or default)
-export const getPricingConstants = () => {
-  const custom = getCustomSettings();
-  if (custom) {
+/**
+ * Format duration for display
+ * @param {number} minutes 
+ * @returns {string}
+ */
+export function formatDuration(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  
+  if (hours === 0) {
+    return `${mins} min`;
+  } else if (mins === 0) {
+    return `${hours}h`;
+  } else {
+    return `${hours}h ${mins}min`;
+  }
+}
+
+// ============================================
+// PRICE CALCULATION
+// ============================================
+
+/**
+ * Calculate base cleaning price (before discounts)
+ * 
+ * @param {Object} params
+ * @param {number} params.sqft - Square footage
+ * @param {number} params.bedrooms - Number of bedrooms
+ * @param {number} params.bathrooms - Number of bathrooms
+ * @returns {number} Base price
+ */
+export function calculateBasePrice({ sqft, bedrooms, bathrooms }) {
+  // Price based on sqft
+  let price = Math.ceil(sqft / 500) * BASE_RATE_PER_500_SQFT;
+  
+  // Add $15 per bathroom over 2
+  const extraBathrooms = Math.max(0, bathrooms - 2);
+  price += extraBathrooms * 15;
+  
+  // Add $10 per bedroom over 3
+  const extraBedrooms = Math.max(0, bedrooms - 3);
+  price += extraBedrooms * 10;
+  
+  return price;
+}
+
+/**
+ * Calculate complete pricing breakdown
+ * 
+ * @param {Object} params
+ * @param {number} params.sqft - Square footage
+ * @param {number} params.bedrooms - Number of bedrooms
+ * @param {number} params.bathrooms - Number of bathrooms
+ * @param {string} params.frequency - Cleaning frequency
+ * @param {Array} [params.addons] - Selected add-on services
+ * @param {number} [params.creditBalance] - Customer credit balance to apply
+ * @param {number} [params.referralDiscount] - Referral discount amount
+ * @returns {Object} Complete pricing breakdown
+ */
+export function calculateCleaningPrice({ 
+  sqft, 
+  bedrooms, 
+  bathrooms, 
+  frequency,
+  addons = [],
+  creditBalance = 0,
+  referralDiscount = 0
+}) {
+  // Base price for recurring
+  const basePrice = calculateBasePrice({ sqft, bedrooms, bathrooms });
+  
+  // Apply frequency discount for recurring price
+  const discount = FREQUENCY_DISCOUNTS[frequency] || 0;
+  let recurringPrice = Math.round(basePrice * (1 - discount));
+  
+  // Enforce minimum
+  recurringPrice = Math.max(recurringPrice, MIN_RECURRING_PRICE);
+  
+  // First clean price (base price * multiplier, no frequency discount)
+  let firstCleanPrice = Math.round(basePrice * FIRST_CLEAN_MULTIPLIER);
+  firstCleanPrice = Math.max(firstCleanPrice, MIN_FIRST_CLEAN_PRICE);
+  
+  // Calculate add-ons total
+  const addonsPrice = addons.reduce((sum, addon) => sum + (addon.price || 0), 0);
+  
+  // First clean total (before discounts)
+  const firstCleanTotal = firstCleanPrice + addonsPrice;
+  
+  // Calculate discounts
+  const totalDiscounts = referralDiscount + Math.min(creditBalance, firstCleanTotal);
+  
+  // Final first clean price
+  const finalFirstCleanPrice = Math.max(0, firstCleanTotal - totalDiscounts);
+  
+  // Deposit and remaining
+  const depositAmount = Math.round(finalFirstCleanPrice * DEPOSIT_PERCENTAGE);
+  const remainingAmount = finalFirstCleanPrice - depositAmount;
+  
+  // Duration estimates
+  const firstCleanDuration = calculateCleaningDuration({ 
+    sqft, bedrooms, bathrooms, isFirstClean: true, addons 
+  });
+  const recurringDuration = calculateCleaningDuration({ 
+    sqft, bedrooms, bathrooms, isFirstClean: false 
+  });
+  
+  return {
+    // Base prices
+    basePrice,
+    recurringPrice,
+    firstCleanPrice,
+    
+    // Add-ons
+    addonsPrice,
+    addons,
+    
+    // First clean breakdown
+    firstCleanTotal,
+    referralDiscount,
+    creditApplied: Math.min(creditBalance, firstCleanTotal - referralDiscount),
+    totalDiscounts,
+    finalFirstCleanPrice,
+    
+    // Payment breakdown
+    depositAmount,
+    remainingAmount,
+    
+    // Durations
+    firstCleanDuration,
+    recurringDuration,
+    
+    // Frequency info
+    frequency,
+    frequencyDiscount: discount,
+    frequencyDiscountPercent: Math.round(discount * 100),
+    
+    // Savings info
+    savingsPerVisit: firstCleanPrice - recurringPrice,
+  };
+}
+
+// ============================================
+// CANCELLATION FEE CALCULATION
+// ============================================
+
+/**
+ * Calculate cancellation fee based on time until job
+ * 
+ * @param {Date|string} scheduledDate - Scheduled job date
+ * @param {number} jobPrice - Full job price
+ * @returns {Object} Fee info
+ */
+export function calculateCancellationFee(scheduledDate, jobPrice) {
+  const now = new Date();
+  const jobDate = new Date(scheduledDate);
+  const hoursUntilJob = (jobDate - now) / (1000 * 60 * 60);
+  
+  if (hoursUntilJob >= 48) {
     return {
-      BASE_LABOR_COST: custom.baseLaborCost ?? DEFAULT_PRICING_CONSTANTS.BASE_LABOR_COST,
-      SUPPLY_COST: custom.supplyCost ?? DEFAULT_PRICING_CONSTANTS.SUPPLY_COST,
-      TARGET_MARGIN: custom.targetMargin ?? DEFAULT_PRICING_CONSTANTS.TARGET_MARGIN,
-      HOURLY_RATE: custom.hourlyRate ?? DEFAULT_PRICING_CONSTANTS.HOURLY_RATE,
-      ORGANIC_BUFFER: custom.organicBuffer ?? DEFAULT_PRICING_CONSTANTS.ORGANIC_BUFFER,
-      EFFICIENCY_DISCOUNT: custom.efficiencyDiscount ?? DEFAULT_PRICING_CONSTANTS.EFFICIENCY_DISCOUNT,
-      EFFICIENCY_THRESHOLD_HOURS: custom.efficiencyThresholdHours ?? DEFAULT_PRICING_CONSTANTS.EFFICIENCY_THRESHOLD_HOURS,
-      FIRST_CLEAN_PREMIUM: custom.firstCleanPremium ?? DEFAULT_PRICING_CONSTANTS.FIRST_CLEAN_PREMIUM,
-      SQFT_BASE_HOURS: custom.sqftBaseHours ?? DEFAULT_PRICING_CONSTANTS.SQFT_BASE_HOURS,
-      SQFT_PER_THOUSAND: custom.sqftPerThousand ?? DEFAULT_PRICING_CONSTANTS.SQFT_PER_THOUSAND,
-      BATHROOM_HOURS: custom.bathroomHours ?? DEFAULT_PRICING_CONSTANTS.BATHROOM_HOURS,
-      BEDROOM_HOURS: custom.bedroomHours ?? DEFAULT_PRICING_CONSTANTS.BEDROOM_HOURS,
+      fee: 0,
+      reason: 'Free cancellation (48+ hours notice)',
+      canCancel: true,
+    };
+  } else if (hoursUntilJob >= 24) {
+    return {
+      fee: CANCELLATION_FEES['24_to_48h'],
+      reason: '$25 late cancellation fee (24-48 hours notice)',
+      canCancel: true,
+    };
+  } else {
+    return {
+      fee: jobPrice,
+      reason: 'Full charge (less than 24 hours notice)',
+      canCancel: true,
     };
   }
-  return DEFAULT_PRICING_CONSTANTS;
-};
-
-// Get current frequency multipliers (custom or default)
-export const getFrequencyMultipliers = () => {
-  const custom = getCustomSettings();
-  if (custom?.frequencyMultipliers) {
-    return { ...DEFAULT_FREQUENCY_MULTIPLIERS, ...custom.frequencyMultipliers };
-  }
-  return DEFAULT_FREQUENCY_MULTIPLIERS;
-};
-
-// Export for backward compatibility
-export const PRICING_CONSTANTS = getPricingConstants();
-export const FREQUENCY_MULTIPLIERS = getFrequencyMultipliers();
+}
 
 // ============================================
-// CALCULATION HELPERS
+// FORMATTING UTILITIES
 // ============================================
 
 /**
- * Calculate base hours from square footage
- * @param {number} sqft - Square footage of the home
- * @returns {number} Base hours
+ * Format price as currency
+ * @param {number} price 
+ * @returns {string}
  */
-export const calculateBaseHours = (sqft) => {
-  const settings = getPricingConstants();
-  if (sqft < 1000) {
-    return settings.SQFT_BASE_HOURS;
-  }
-  return ((sqft - 1000) / 1000 * settings.SQFT_PER_THOUSAND) + settings.SQFT_BASE_HOURS;
-};
-
-/**
- * Calculate room load hours from bedrooms and bathrooms
- * @param {number} bedrooms - Number of bedrooms
- * @param {number} bathrooms - Number of bathrooms
- * @returns {number} Room load hours
- */
-export const calculateRoomLoad = (bedrooms, bathrooms) => {
-  const settings = getPricingConstants();
-  return (bathrooms * settings.BATHROOM_HOURS) + (bedrooms * settings.BEDROOM_HOURS);
-};
-
-/**
- * Apply organic buffer to total hours
- * @param {number} hours - Base hours before buffer
- * @returns {number} Hours with organic buffer applied
- */
-export const applyOrganicBuffer = (hours) => {
-  const settings = getPricingConstants();
-  return hours * settings.ORGANIC_BUFFER;
-};
-
-/**
- * Round price to nearest $5
- * @param {number} price - Raw price
- * @returns {number} Price rounded to nearest $5
- */
-export const roundToNearestFive = (price) => {
-  return Math.round(price / 5) * 5;
-};
-
-/**
- * Format price as USD currency string
- * @param {number} price - Price in dollars
- * @returns {string} Formatted price string
- */
-export const formatPrice = (price) => {
+export function formatPrice(price) {
+  if (price === null || price === undefined) return '$0';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(price);
-};
+}
+
+/**
+ * Format frequency for display
+ * @param {string} frequency 
+ * @returns {string}
+ */
+export function formatFrequency(frequency) {
+  const labels = {
+    weekly: 'Weekly',
+    biweekly: 'Bi-Weekly',
+    monthly: 'Monthly',
+    onetime: 'One-Time',
+  };
+  return labels[frequency] || frequency;
+}
+
+/**
+ * Get frequency badge text
+ * @param {string} frequency 
+ * @returns {string}
+ */
+export function getFrequencyBadge(frequency) {
+  const badges = {
+    weekly: '35% off',
+    biweekly: 'Most Popular',
+    monthly: '10% off',
+    onetime: 'Deep Clean',
+  };
+  return badges[frequency] || '';
+}
 
 // ============================================
-// MAIN CALCULATION FUNCTION
+// TIME SLOT UTILITIES
 // ============================================
 
 /**
- * Calculate cleaning price based on home specifications
- * 
- * Calculation Order:
- * 1. Base Hours (from sqft)
- * 2. Room Load (beds + baths)
- * 3. Organic Buffer (1.10x)
- * 4. Calculate raw price (hours * rate)
- * 5. Apply Efficiency Discount (15% off if hours > 4)
- * 6. Apply Frequency Multiplier (recurring discounts)
- * 7. Round to nearest $5
- * 
- * @param {Object} params - Cleaning parameters
- * @param {number} params.sqft - Square footage (500-5000)
- * @param {number} params.bedrooms - Number of bedrooms
- * @param {number} params.bathrooms - Number of bathrooms
- * @param {string} params.frequency - 'weekly' | 'biweekly' | 'monthly' | 'onetime'
- * @returns {Object} Pricing breakdown
+ * Get time slot display text
+ * @param {string} slot - 'morning' or 'afternoon'
+ * @returns {string}
  */
-export const calculateCleaningPrice = ({ sqft, bedrooms, bathrooms, frequency }) => {
-  // Get current settings (may be customized via admin)
-  const settings = getPricingConstants();
-  const freqMultipliers = getFrequencyMultipliers();
-  
-  // Step 1: Calculate base hours from square footage
-  const baseHours = calculateBaseHours(sqft);
-  
-  // Step 2: Calculate room load
-  const roomLoad = calculateRoomLoad(bedrooms, bathrooms);
-  
-  // Step 3: Sum and apply organic buffer (1.10x for eco-friendly products)
-  const totalHoursBeforeBuffer = baseHours + roomLoad;
-  const totalHoursWithBuffer = applyOrganicBuffer(totalHoursBeforeBuffer);
-  
-  // Step 4: Calculate raw price (hours * hourly rate)
-  const rawPrice = totalHoursWithBuffer * settings.HOURLY_RATE;
-  
-  // Step 5: Apply efficiency discount (15% off if total hours > threshold)
-  const efficiencyDiscountApplied = totalHoursWithBuffer > settings.EFFICIENCY_THRESHOLD_HOURS;
-  const priceAfterEfficiency = efficiencyDiscountApplied 
-    ? rawPrice * (1 - settings.EFFICIENCY_DISCOUNT)
-    : rawPrice;
-  
-  // Step 6: Apply frequency multiplier (recurring discounts)
-  const frequencyMultiplier = freqMultipliers[frequency] || freqMultipliers.biweekly;
-  const priceAfterFrequency = priceAfterEfficiency * frequencyMultiplier;
-  
-  // Step 7: Round to nearest $5
-  const recurringPrice = roundToNearestFive(priceAfterFrequency);
-  
-  // Step 8: Calculate first-time deep clean price (recurring + premium)
-  const firstCleanPrice = recurringPrice + settings.FIRST_CLEAN_PREMIUM;
-
-  // Debug logging for price breakdown
-  console.log('=== Willow & Water Pricing Breakdown ===');
-  console.log(`Input: ${sqft} sqft, ${bedrooms} bed, ${bathrooms} bath, ${frequency}`);
-  console.log('─────────────────────────────────────────');
-  console.log(`Base Hours (sqft):     ${baseHours.toFixed(2)} hrs`);
-  console.log(`Room Load (bed/bath):  ${roomLoad.toFixed(2)} hrs`);
-  console.log(`Total Before Buffer:   ${totalHoursBeforeBuffer.toFixed(2)} hrs`);
-  console.log(`After Buffer (×1.10):  ${totalHoursWithBuffer.toFixed(2)} hrs`);
-  console.log('─────────────────────────────────────────');
-  console.log(`Raw Price:             $${rawPrice.toFixed(2)}`);
-  console.log(`Efficiency Discount:   ${efficiencyDiscountApplied ? '-15% → $' + priceAfterEfficiency.toFixed(2) : 'N/A (hours ≤ 4)'}`);
-  console.log(`Frequency (×${frequencyMultiplier}):    $${priceAfterFrequency.toFixed(2)}`);
-  console.log(`Final (rounded):       $${recurringPrice}`);
-  console.log(`First Clean (+$100):   $${firstCleanPrice}`);
-  console.log('=========================================\n');
-
-  return {
-    recurringPrice,
-    firstCleanPrice,
-    // Breakdown for transparency/debugging
-    breakdown: {
-      baseHours: Math.round(baseHours * 100) / 100,
-      roomLoad: Math.round(roomLoad * 100) / 100,
-      totalHoursBeforeBuffer: Math.round(totalHoursBeforeBuffer * 100) / 100,
-      totalHoursWithBuffer: Math.round(totalHoursWithBuffer * 100) / 100,
-      rawPrice: Math.round(rawPrice * 100) / 100,
-      efficiencyDiscountApplied,
-      priceAfterEfficiency: Math.round(priceAfterEfficiency * 100) / 100,
-      frequencyMultiplier,
-      priceAfterFrequency: Math.round(priceAfterFrequency * 100) / 100,
-    },
+export function formatTimeSlot(slot) {
+  const slots = {
+    morning: 'Morning (9am - 12pm)',
+    afternoon: 'Afternoon (1pm - 5pm)',
   };
+  return slots[slot] || slot;
+}
+
+/**
+ * Get short time slot text
+ * @param {string} slot 
+ * @returns {string}
+ */
+export function formatTimeSlotShort(slot) {
+  const slots = {
+    morning: '9am - 12pm',
+    afternoon: '1pm - 5pm',
+  };
+  return slots[slot] || slot;
+}
+
+// ============================================
+// EXPORT DEFAULT
+// ============================================
+
+export default {
+  calculateCleaningDuration,
+  calculateBasePrice,
+  calculateCleaningPrice,
+  calculateCancellationFee,
+  formatPrice,
+  formatDuration,
+  formatFrequency,
+  formatTimeSlot,
+  formatTimeSlotShort,
+  getFrequencyBadge,
+  DEPOSIT_PERCENTAGE,
+  FREQUENCY_DISCOUNTS,
 };
