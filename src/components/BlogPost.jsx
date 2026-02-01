@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Calendar, Clock, ArrowLeft, ArrowRight, Tag, Share2, Facebook, Twitter, Linkedin, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, ArrowLeft, ArrowRight, Tag, Share2, Facebook, Twitter, Linkedin, ChevronRight, Sparkles, Calculator, CheckCircle } from 'lucide-react';
 import Navbar from './Navbar';
+import BookingFlow from './booking/BookingFlow';
 import { getPostBySlug, getRelatedPosts, getAllCategories } from '../data/blogPosts';
 
 // Simple markdown-like content renderer
@@ -197,12 +198,45 @@ const ContentRenderer = ({ content }) => {
   return <>{elements}</>;
 };
 
+// In-Article CTA Component
+const ArticleCTA = ({ onBookClick }) => (
+  <div className="my-10 bg-gradient-to-br from-sage/10 to-sage/5 rounded-2xl border border-sage/20 p-6 sm:p-8">
+    <div className="flex flex-col sm:flex-row items-center gap-6">
+      <div className="w-16 h-16 bg-sage rounded-2xl flex items-center justify-center flex-shrink-0">
+        <Sparkles className="w-8 h-8 text-white" />
+      </div>
+      <div className="flex-1 text-center sm:text-left">
+        <h3 className="font-playfair text-xl font-semibold text-charcoal mb-2">
+          Ready for a Cleaner, Healthier Home?
+        </h3>
+        <p className="text-charcoal/70 font-inter text-sm mb-4">
+          Get an instant quote for organic cleaning. No chemicals, just a sparkling clean home that's safe for your family and pets.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center sm:justify-start">
+          <button
+            onClick={onBookClick}
+            className="inline-flex items-center justify-center gap-2 bg-sage text-white px-6 py-3 rounded-xl font-inter font-medium hover:bg-sage/90 transition-colors"
+          >
+            <Calculator className="w-5 h-5" />
+            Get Your Price
+          </button>
+          <div className="flex items-center justify-center gap-2 text-sm text-charcoal/60 font-inter">
+            <CheckCircle className="w-4 h-4 text-sage" />
+            Free quotes, no commitment
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const BlogPost = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const post = getPostBySlug(slug);
   const relatedPosts = getRelatedPosts(slug, 3);
   const categories = getAllCategories();
+  const [showBooking, setShowBooking] = useState(false);
 
   useEffect(() => {
     if (!post) {
@@ -388,6 +422,9 @@ const BlogPost = () => {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-2xl shadow-sm border border-charcoal/5 p-6 sm:p-10">
             <ContentRenderer content={post.content} />
+            
+            {/* In-Article CTA */}
+            <ArticleCTA onBookClick={() => setShowBooking(true)} />
           </div>
 
           {/* Tags */}
@@ -440,28 +477,35 @@ const BlogPost = () => {
       {/* CTA Section */}
       <section className="py-16 bg-sage">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="inline-flex items-center gap-2 bg-white/20 text-bone px-4 py-2 rounded-full text-sm font-inter mb-4">
+            <Sparkles className="w-4 h-4" />
+            100% Non-Toxic Products
+          </div>
           <h2 className="text-2xl sm:text-3xl font-playfair font-semibold text-bone mb-4">
             Ready to Experience Organic Cleaning?
           </h2>
-          <p className="text-bone/80 font-inter mb-6">
-            Let us bring these principles to your home with our professional organic cleaning service.
+          <p className="text-bone/80 font-inter mb-8 max-w-xl mx-auto">
+            Join hundreds of Fox Valley families who trust Willow & Water for a cleaner, healthier home. Get your instant quote in under 60 seconds.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link 
-              to="/#pricing" 
-              className="inline-flex items-center justify-center gap-2 bg-bone text-charcoal px-8 py-4 rounded-lg font-inter font-medium hover:bg-bone/90 transition-colors"
+            <button 
+              onClick={() => setShowBooking(true)}
+              className="inline-flex items-center justify-center gap-2 bg-bone text-charcoal px-8 py-4 rounded-xl font-inter font-semibold hover:bg-bone/90 transition-colors shadow-lg"
             >
-              Get Your Free Quote
-              <ArrowRight className="w-5 h-5" />
-            </Link>
+              <Calculator className="w-5 h-5" />
+              Get Your Price & Book
+            </button>
             <Link 
               to="/blog" 
-              className="inline-flex items-center justify-center gap-2 bg-transparent text-bone border border-bone/30 px-8 py-4 rounded-lg font-inter font-medium hover:bg-bone/10 transition-colors"
+              className="inline-flex items-center justify-center gap-2 bg-transparent text-bone border border-bone/30 px-8 py-4 rounded-xl font-inter font-medium hover:bg-bone/10 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
               Back to Blog
             </Link>
           </div>
+          <p className="text-bone/60 text-sm font-inter mt-4">
+            No obligation • Free quotes • Instant pricing
+          </p>
         </div>
       </section>
 
@@ -519,6 +563,12 @@ const BlogPost = () => {
           </div>
         </div>
       </footer>
+
+      {/* Booking Flow Modal */}
+      <BookingFlow 
+        isOpen={showBooking} 
+        onClose={() => setShowBooking(false)} 
+      />
     </div>
   );
 };
