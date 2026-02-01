@@ -145,7 +145,7 @@ const AdminLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-bone">
+    <div className="min-h-screen bg-bone flex">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -157,7 +157,7 @@ const AdminLayout = () => {
       {/* Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform transition-transform duration-200 ease-in-out
-        lg:translate-x-0 lg:static lg:shadow-none lg:border-r lg:border-charcoal/10
+        lg:relative lg:translate-x-0 lg:shadow-none lg:border-r lg:border-charcoal/10 lg:flex-shrink-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex flex-col h-full">
@@ -236,7 +236,7 @@ const AdminLayout = () => {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
         <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-charcoal/10 px-4 py-3">
           <div className="flex items-center justify-between">
@@ -255,7 +255,7 @@ const AdminLayout = () => {
         </header>
 
         {/* Page content */}
-        <main className="p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
           <Outlet />
         </main>
       </div>
