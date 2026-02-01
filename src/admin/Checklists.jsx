@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   ClipboardCheck, 
   Plus, 
@@ -13,7 +13,8 @@ import {
   RefreshCw,
   Copy,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Printer
 } from 'lucide-react';
 
 const DEFAULT_CHECKLIST = {
@@ -220,10 +221,296 @@ const ChecklistEditor = ({ checklist, onSave, onClose }) => {
   );
 };
 
+// Printable Checklist Component
+const PrintableChecklist = ({ checklist, onClose }) => {
+  const printRef = useRef(null);
+  
+  const categories = ['Kitchen', 'Bathrooms', 'Living Areas', 'Bedrooms', 'General'];
+  const itemsByCategory = categories.reduce((acc, cat) => {
+    acc[cat] = checklist.items.filter(i => i.category === cat);
+    return acc;
+  }, {});
+
+  const handlePrint = () => {
+    const printContent = printRef.current;
+    const printWindow = window.open('', '_blank');
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${checklist.name} - Willow & Water</title>
+          <style>
+            @page { margin: 0.5in; }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              color: #333;
+              line-height: 1.4;
+              padding: 20px;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 20px;
+              padding-bottom: 15px;
+              border-bottom: 2px solid #71797E;
+            }
+            .logo { 
+              font-family: Georgia, serif;
+              font-size: 24px;
+              font-weight: 600;
+              color: #71797E;
+              margin-bottom: 5px;
+            }
+            .checklist-name { 
+              font-size: 18px;
+              color: #36454F;
+              margin-bottom: 8px;
+            }
+            .meta {
+              display: flex;
+              justify-content: space-between;
+              font-size: 12px;
+              color: #666;
+              margin-top: 10px;
+            }
+            .meta-item { display: flex; gap: 5px; }
+            .category {
+              margin-bottom: 20px;
+              break-inside: avoid;
+            }
+            .category-header {
+              background: #f5f5f5;
+              padding: 8px 12px;
+              font-weight: 600;
+              font-size: 14px;
+              color: #36454F;
+              border-radius: 4px;
+              margin-bottom: 8px;
+            }
+            .task {
+              display: flex;
+              align-items: flex-start;
+              gap: 12px;
+              padding: 8px 0;
+              border-bottom: 1px solid #eee;
+            }
+            .task:last-child { border-bottom: none; }
+            .checkbox {
+              width: 18px;
+              height: 18px;
+              border: 2px solid #71797E;
+              border-radius: 3px;
+              flex-shrink: 0;
+              margin-top: 1px;
+            }
+            .task-text {
+              flex: 1;
+              font-size: 13px;
+            }
+            .required-badge {
+              font-size: 10px;
+              padding: 2px 6px;
+              background: #71797E;
+              color: white;
+              border-radius: 10px;
+              flex-shrink: 0;
+            }
+            .optional-badge {
+              font-size: 10px;
+              padding: 2px 6px;
+              background: #e5e5e5;
+              color: #666;
+              border-radius: 10px;
+              flex-shrink: 0;
+            }
+            .footer {
+              margin-top: 30px;
+              padding-top: 15px;
+              border-top: 1px solid #ddd;
+              font-size: 11px;
+              color: #888;
+              text-align: center;
+            }
+            .signature-section {
+              margin-top: 30px;
+              display: flex;
+              gap: 40px;
+            }
+            .signature-box {
+              flex: 1;
+            }
+            .signature-line {
+              border-bottom: 1px solid #333;
+              margin-bottom: 5px;
+              height: 30px;
+            }
+            .signature-label {
+              font-size: 11px;
+              color: #666;
+            }
+            .notes-section {
+              margin-top: 25px;
+            }
+            .notes-header {
+              font-size: 12px;
+              font-weight: 600;
+              color: #36454F;
+              margin-bottom: 8px;
+            }
+            .notes-lines {
+              border: 1px solid #ddd;
+              border-radius: 4px;
+              padding: 10px;
+              min-height: 80px;
+            }
+            .notes-line {
+              border-bottom: 1px solid #eee;
+              height: 24px;
+            }
+            .notes-line:last-child { border-bottom: none; }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          ${printContent.innerHTML}
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+    
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
+  const requiredCount = checklist.items.filter(i => i.required).length;
+  const today = new Date().toLocaleDateString('en-US', { 
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-charcoal/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="p-4 border-b border-charcoal/10 flex items-center justify-between bg-bone/30">
+          <h2 className="font-playfair text-lg font-semibold text-charcoal">
+            Print Preview
+          </h2>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handlePrint}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Printer className="w-4 h-4" />
+              Print Checklist
+            </button>
+            <button onClick={onClose} className="p-2 text-charcoal/50 hover:text-charcoal rounded-lg">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Print Preview */}
+        <div className="flex-1 overflow-y-auto p-6 bg-gray-100">
+          <div 
+            ref={printRef}
+            className="bg-white shadow-lg mx-auto max-w-2xl p-8"
+            style={{ minHeight: '11in' }}
+          >
+            {/* Printable Content */}
+            <div className="header">
+              <div className="logo">Willow & Water</div>
+              <div className="checklist-name">{checklist.name}</div>
+              <div className="meta">
+                <div className="meta-item">
+                  <span>Date:</span>
+                  <span style={{ borderBottom: '1px solid #333', minWidth: '150px' }}>{today}</span>
+                </div>
+                <div className="meta-item">
+                  <span>Cleaner:</span>
+                  <span style={{ borderBottom: '1px solid #333', minWidth: '150px' }}></span>
+                </div>
+              </div>
+              <div className="meta" style={{ marginTop: '8px' }}>
+                <div className="meta-item">
+                  <span>Client:</span>
+                  <span style={{ borderBottom: '1px solid #333', minWidth: '200px' }}></span>
+                </div>
+                <div className="meta-item">
+                  <span>Address:</span>
+                  <span style={{ borderBottom: '1px solid #333', minWidth: '200px' }}></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tasks by Category */}
+            {categories.map(category => {
+              const categoryItems = itemsByCategory[category];
+              if (categoryItems.length === 0) return null;
+              
+              return (
+                <div key={category} className="category">
+                  <div className="category-header">{category}</div>
+                  {categoryItems.map(item => (
+                    <div key={item.id} className="task">
+                      <div className="checkbox"></div>
+                      <div className="task-text">{item.task}</div>
+                      {item.required ? (
+                        <span className="required-badge">Required</span>
+                      ) : (
+                        <span className="optional-badge">Optional</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+
+            {/* Notes Section */}
+            <div className="notes-section">
+              <div className="notes-header">Notes / Special Instructions</div>
+              <div className="notes-lines">
+                <div className="notes-line"></div>
+                <div className="notes-line"></div>
+                <div className="notes-line"></div>
+              </div>
+            </div>
+
+            {/* Signature Section */}
+            <div className="signature-section">
+              <div className="signature-box">
+                <div className="signature-line"></div>
+                <div className="signature-label">Cleaner Signature</div>
+              </div>
+              <div className="signature-box">
+                <div className="signature-line"></div>
+                <div className="signature-label">Date Completed</div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="footer">
+              Willow & Water Organic Cleaning • Fox Valley, IL • willowandwatercleaning.com
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Checklists = () => {
   const [checklists, setChecklists] = useState([]);
   const [editingChecklist, setEditingChecklist] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [printingChecklist, setPrintingChecklist] = useState(null);
 
   useEffect(() => {
     // Load from localStorage
@@ -327,6 +614,13 @@ const Checklists = () => {
                   </div>
                   <div className="flex items-center gap-1">
                     <button
+                      onClick={() => setPrintingChecklist(checklist)}
+                      className="p-2 text-charcoal/50 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                      title="Print"
+                    >
+                      <Printer className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => duplicateChecklist(checklist)}
                       className="p-2 text-charcoal/50 hover:text-sage hover:bg-sage/10 rounded-lg"
                       title="Duplicate"
@@ -378,12 +672,20 @@ const Checklists = () => {
                 </div>
               </div>
 
-              <div className="border-t border-charcoal/10 p-4 bg-bone/30">
+              <div className="border-t border-charcoal/10 p-4 bg-bone/30 flex gap-3">
                 <button
                   onClick={() => { setEditingChecklist(checklist); setShowEditor(true); }}
-                  className="w-full text-center text-sage hover:text-charcoal font-inter text-sm transition-colors"
+                  className="flex-1 text-center text-sage hover:text-charcoal font-inter text-sm transition-colors"
                 >
-                  View & Edit Checklist
+                  View & Edit
+                </button>
+                <div className="w-px bg-charcoal/10" />
+                <button
+                  onClick={() => setPrintingChecklist(checklist)}
+                  className="flex-1 text-center text-blue-600 hover:text-charcoal font-inter text-sm transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print
                 </button>
               </div>
             </div>
@@ -415,6 +717,14 @@ const Checklists = () => {
           checklist={editingChecklist}
           onSave={saveChecklist}
           onClose={() => { setShowEditor(false); setEditingChecklist(null); }}
+        />
+      )}
+
+      {/* Print Preview Modal */}
+      {printingChecklist && (
+        <PrintableChecklist
+          checklist={printingChecklist}
+          onClose={() => setPrintingChecklist(null)}
         />
       )}
     </div>
