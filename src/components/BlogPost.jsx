@@ -370,6 +370,19 @@ const BlogPost = () => {
         </div>
       </section>
 
+      {/* Featured Image */}
+      {post.image && (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 mb-8">
+          <div className="rounded-2xl overflow-hidden shadow-lg">
+            <img 
+              src={post.image} 
+              alt={post.title}
+              className="w-full h-64 sm:h-80 lg:h-96 object-cover"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Article Content */}
       <article className="py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">

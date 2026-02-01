@@ -81,8 +81,19 @@ const BlogList = () => {
 
   const PostCard = ({ post, featured = false }) => (
     <article className={`bg-white rounded-2xl shadow-sm border border-charcoal/5 overflow-hidden hover:shadow-md transition-shadow ${featured ? 'md:col-span-2 md:grid md:grid-cols-2' : ''}`}>
-      <div className={`bg-sage/10 ${featured ? 'h-full min-h-[200px]' : 'h-48'} flex items-center justify-center`}>
-        <span className="text-sage/40 font-playfair text-lg">Willow & Water</span>
+      <div className={`${featured ? 'h-full min-h-[200px]' : 'h-48'} relative overflow-hidden bg-sage/10`}>
+        {post.image ? (
+          <img 
+            src={post.image} 
+            alt={post.title}
+            className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-sage/40 font-playfair text-lg">Willow & Water</span>
+          </div>
+        )}
       </div>
       <div className="p-6">
         <div className="flex items-center gap-3 mb-3">

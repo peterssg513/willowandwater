@@ -15,7 +15,7 @@ export const BLOG_POSTS = [
     publishDate: '2026-01-15',
     readTime: '6 min read',
     featured: true,
-    image: '/blog/organic-cleaning.jpg',
+    image: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&q=80',
     metaDescription: 'Learn why organic cleaning products are better for your family, pets, and home. Discover 7 compelling reasons to switch to non-toxic, eco-friendly cleaning.',
     keywords: ['organic cleaning products', 'non-toxic cleaning', 'eco-friendly cleaning', 'healthy home', 'chemical-free cleaning'],
     content: `
@@ -110,7 +110,7 @@ At Willow & Water, we exclusively use Branch Basics products in every home we cl
     publishDate: '2026-01-10',
     readTime: '5 min read',
     featured: true,
-    image: '/blog/branch-basics.jpg',
+    image: 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=800&q=80',
     metaDescription: 'Honest Branch Basics review from professional organic cleaners. Learn why we chose this non-toxic cleaning system for all our Fox Valley clients.',
     keywords: ['Branch Basics review', 'Branch Basics concentrate', 'non-toxic cleaning products', 'organic cleaning supplies', 'eco-friendly cleaners'],
     content: `
@@ -217,7 +217,7 @@ Or, let us handle it! When you book with Willow & Water, you get the benefits of
     publishDate: '2026-01-20',
     readTime: '8 min read',
     featured: false,
-    image: '/blog/spring-cleaning.jpg',
+    image: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&q=80',
     metaDescription: 'Complete spring cleaning checklist for Fox Valley IL homes. Room-by-room guide for St. Charles, Geneva, Batavia families. Free printable checklist included!',
     keywords: ['spring cleaning checklist', 'spring cleaning Fox Valley', 'deep cleaning checklist', 'home cleaning guide', 'spring cleaning St Charles IL'],
     content: `
@@ -382,7 +382,7 @@ At Willow & Water, we offer spring deep cleaning services throughout St. Charles
     publishDate: '2026-01-08',
     readTime: '5 min read',
     featured: false,
-    image: '/blog/hardwood-floors.jpg',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
     metaDescription: 'Learn how to clean hardwood floors naturally without chemicals. Safe methods that protect your floors and family. Expert tips from professional cleaners.',
     keywords: ['clean hardwood floors naturally', 'natural floor cleaner', 'hardwood floor care', 'eco-friendly floor cleaning', 'wood floor maintenance'],
     content: `
@@ -515,7 +515,7 @@ For the best results, consider professional hardwood floor cleaning periodically
     publishDate: '2026-01-05',
     readTime: '6 min read',
     featured: false,
-    image: '/blog/pet-safe-cleaning.jpg',
+    image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&q=80',
     metaDescription: 'Pet-safe cleaning tips and products. Learn how to keep your home clean without harming dogs and cats. Non-toxic cleaning guide for pet owners.',
     keywords: ['pet safe cleaning', 'pet friendly cleaning products', 'non-toxic cleaning pets', 'cleaning with dogs', 'cat safe cleaning products'],
     content: `
@@ -665,7 +665,7 @@ We understand that pets are family, and we treat your home with that understandi
     publishDate: '2026-01-02',
     readTime: '5 min read',
     featured: false,
-    image: '/blog/recurring-cleaning.jpg',
+    image: 'https://images.unsplash.com/photo-1527515545081-5db817172677?w=800&q=80',
     metaDescription: 'Benefits of recurring house cleaning service. Learn how regular professional cleaning improves health, saves time, and reduces stress for families.',
     keywords: ['recurring cleaning service', 'benefits of maid service', 'professional house cleaning', 'cleaning service worth it', 'regular house cleaning'],
     content: `
@@ -820,7 +820,7 @@ We offer several recurring options:
     publishDate: '2025-12-28',
     readTime: '6 min read',
     featured: false,
-    image: '/blog/eco-friendly-living.jpg',
+    image: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&q=80',
     metaDescription: 'Easy eco-friendly living tips for Illinois families. Practical sustainable habits for your home. Green living guide for Fox Valley residents.',
     keywords: ['eco-friendly living', 'sustainable home tips', 'green living Illinois', 'environmentally friendly household', 'sustainable lifestyle'],
     content: `
@@ -967,7 +967,7 @@ At Willow & Water, we're proud to be part of Fox Valley's sustainability efforts
     publishDate: '2025-12-22',
     readTime: '4 min read',
     featured: false,
-    image: '/blog/prepare-for-cleaning.jpg',
+    image: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&q=80',
     metaDescription: 'How to prepare your home for professional cleaning service. Tips to maximize your cleaning appointment and get the best results.',
     keywords: ['prepare for cleaning service', 'professional cleaning tips', 'cleaning appointment prep', 'maid service preparation'],
     content: `
@@ -1112,7 +1112,7 @@ That's it! We'll handle the rest.
     publishDate: '2025-12-18',
     readTime: '7 min read',
     featured: false,
-    image: '/blog/allergies-asthma.jpg',
+    image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80',
     metaDescription: 'Cleaning tips for allergies and asthma sufferers. Reduce indoor allergens with proper techniques. Non-toxic cleaning for respiratory health.',
     keywords: ['cleaning for allergies', 'asthma friendly cleaning', 'reduce indoor allergens', 'hypoallergenic cleaning', 'dust mite removal'],
     content: `
@@ -1302,7 +1302,7 @@ At Willow & Water, we understand allergies. Our non-toxic products won't trigger
     publishDate: '2025-12-15',
     readTime: '7 min read',
     featured: false,
-    image: '/blog/move-cleaning.jpg',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
     metaDescription: 'Complete move-in move-out cleaning guide. What to clean when moving, checklist, and tips for getting your deposit back or preparing for buyers.',
     keywords: ['move out cleaning', 'move in cleaning', 'moving cleaning checklist', 'deep cleaning for moving', 'get deposit back cleaning'],
     content: `
@@ -1504,7 +1504,7 @@ If you're moving within the Fox Valley area:
     publishDate: '2025-12-10',
     readTime: '6 min read',
     featured: false,
-    image: '/blog/winter-cleaning.jpg',
+    image: 'https://images.unsplash.com/photo-1551524559-8af4e6624178?w=800&q=80',
     metaDescription: 'Winter cleaning tips for Fox Valley IL homes. How to handle salt residue, mud, and slush in St. Charles, Geneva, Batavia. Keep your home clean all winter.',
     keywords: ['winter cleaning tips', 'Fox Valley winter', 'salt residue cleaning', 'Illinois winter cleaning', 'mud season cleaning'],
     content: `
@@ -1673,7 +1673,7 @@ The Fox Valley area offers great resources:
     publishDate: '2025-12-05',
     readTime: '7 min read',
     featured: false,
-    image: '/blog/choosing-cleaner.jpg',
+    image: 'https://images.unsplash.com/photo-1628177142898-93e36e4e3a50?w=800&q=80',
     metaDescription: 'Guide to choosing a house cleaning service in Kane County IL. What to look for in St. Charles, Geneva, Batavia, Aurora cleaning companies. Local hiring tips.',
     keywords: ['house cleaning service Kane County', 'cleaning service St Charles IL', 'maid service Geneva IL', 'how to choose cleaning company', 'hire house cleaner Illinois'],
     content: `
@@ -1865,7 +1865,7 @@ We're proud to serve families throughout Kane County with:
     publishDate: '2025-11-28',
     readTime: '6 min read',
     featured: false,
-    image: '/blog/historic-home.jpg',
+    image: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&q=80',
     metaDescription: 'Tips for cleaning historic homes in Geneva IL. How to care for vintage hardwood, original fixtures, and period details. Preserve your home\'s character.',
     keywords: ['cleaning historic homes', 'Geneva IL historic homes', 'vintage hardwood care', 'antique fixture cleaning', 'old house cleaning tips'],
     content: `
@@ -2067,7 +2067,7 @@ For regular cleaning, choose a service that understands historic homes and uses 
     publishDate: '2025-11-22',
     readTime: '5 min read',
     featured: false,
-    image: '/blog/family-friendly.jpg',
+    image: 'https://images.unsplash.com/photo-1565538810643-b5bdb714032a?w=800&q=80',
     metaDescription: 'Child-safe cleaning tips for Fox Valley families. Non-toxic cleaning methods for homes with kids in St. Charles, Geneva, Batavia IL. Keep kids healthy.',
     keywords: ['child safe cleaning', 'family friendly cleaning', 'non-toxic cleaning for kids', 'safe cleaning products children', 'Fox Valley families'],
     content: `
@@ -2257,7 +2257,7 @@ Many Fox Valley parents tell us they hired a cleaning service specifically so th
     publishDate: '2025-11-15',
     readTime: '8 min read',
     featured: false,
-    image: '/blog/batavia-calendar.jpg',
+    image: 'https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=800&q=80',
     metaDescription: 'Seasonal home maintenance calendar for Batavia IL homeowners. Month-by-month cleaning and maintenance guide for Fox Valley homes.',
     keywords: ['Batavia IL home maintenance', 'seasonal cleaning calendar', 'home maintenance schedule Illinois', 'Fox Valley homeowner tips'],
     content: `
@@ -2508,7 +2508,7 @@ Many Batavia clients add extra cleanings before holidays or special events.
     publishDate: '2025-11-08',
     readTime: '7 min read',
     featured: false,
-    image: '/blog/declutter.jpg',
+    image: 'https://images.unsplash.com/photo-1556909114-44e3e70034e2?w=800&q=80',
     metaDescription: 'Decluttering tips for Fox Valley IL homes. Room-by-room guide plus local donation spots in St. Charles, Geneva, Batavia. Simplify your home.',
     keywords: ['decluttering tips', 'organize home Fox Valley', 'donation locations Kane County', 'home organization St Charles', 'declutter Geneva IL'],
     content: `
@@ -2759,7 +2759,7 @@ A cleaner home is easier to maintain when it's not cluttered:
     publishDate: '2025-11-01',
     readTime: '6 min read',
     featured: false,
-    image: '/blog/new-homeowner.jpg',
+    image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&q=80',
     metaDescription: 'Guide for new St. Charles IL homeowners. Local cleaning tips, water quality info, seasonal advice for maintaining your Fox Valley home.',
     keywords: ['St Charles IL homeowner', 'new homeowner tips Illinois', 'St Charles home maintenance', 'Fox Valley homeowner guide'],
     content: `
@@ -2956,7 +2956,7 @@ St. Charles is a wonderful place to live. Taking good care of your home will hel
     publishDate: '2025-10-25',
     readTime: '6 min read',
     featured: false,
-    image: '/blog/aurora-neighborhoods.jpg',
+    image: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80',
     metaDescription: 'Aurora IL house cleaning guide by neighborhood. Tips for downtown Aurora, Boulder Hill, Fox Valley Mall area, and more. Local cleaning advice.',
     keywords: ['Aurora IL house cleaning', 'Aurora neighborhoods', 'cleaning service Aurora Illinois', 'house cleaning Kane County'],
     content: `
@@ -3158,7 +3158,7 @@ When choosing a cleaning service in Aurora:
     publishDate: '2025-10-18',
     readTime: '6 min read',
     featured: false,
-    image: '/blog/green-habits.jpg',
+    image: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&q=80',
     metaDescription: 'Sustainable cleaning guide for Fox Valley IL residents. Eco-friendly habits, local environmental resources, green cleaning tips for Kane County.',
     keywords: ['green cleaning Fox Valley', 'sustainable cleaning Illinois', 'eco-friendly home Kane County', 'environmental cleaning tips'],
     content: `
@@ -3415,7 +3415,7 @@ Fox Valley collective action matters:
     publishDate: '2025-10-10',
     readTime: '5 min read',
     featured: false,
-    image: '/blog/new-construction.jpg',
+    image: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80',
     metaDescription: 'Cleaning tips for new construction homes in Oswego and Yorkville IL. Post-construction cleaning, maintaining new surfaces, modern home care.',
     keywords: ['Oswego IL home cleaning', 'Yorkville IL house cleaning', 'new construction cleaning', 'new home maintenance'],
     content: `
