@@ -1,12 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Calendar, ExternalLink, Clock, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, ExternalLink, Clock, CheckCircle } from 'lucide-react';
 
 const SchedulingStep = ({ bookingData, onBack, onScheduled }) => {
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [capturedBooking, setCapturedBooking] = useState(null);
-  const [manualEntry, setManualEntry] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
   const iframeRef = useRef(null);
   
   const calLink = import.meta.env.VITE_CALCOM_LINK || 'peter-williams-gizpz6/willowandwatercleaning-appointment';
@@ -27,7 +24,7 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
   // Listen for Cal.com booking events via postMessage
   useEffect(() => {
     const handleCalMessage = (event) => {
-      // Only accept messages from Cal.com
+      // Accept messages from Cal.com
       if (!event.origin.includes('cal.com')) return;
       
       try {
@@ -36,15 +33,17 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
         console.log('Cal.com message received:', data);
         
         // Check for booking confirmation events
+        // Cal.com sends various event types depending on version
         if (data.type === 'CAL:bookingSuccessful' || 
-            data.type === '__routeChanged' && data.data?.includes('booking') ||
-            data.action === 'bookingSuccessful') {
+            data.type === 'bookingSuccessful' ||
+            data.action === 'bookingSuccessful' ||
+            (data.type === '__routeChanged' && data.data?.includes('/booking/'))) {
           
           // Extract booking details
-          const bookingData = data.data || data;
+          const bookingInfo = data.data || data;
           
-          if (bookingData.startTime) {
-            const startDate = new Date(bookingData.startTime);
+          if (bookingInfo.startTime) {
+            const startDate = new Date(bookingInfo.startTime);
             const dateStr = startDate.toISOString().split('T')[0];
             const timeStr = startDate.toLocaleTimeString('en-US', {
               hour: 'numeric',
@@ -52,23 +51,24 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
               hour12: true
             });
             
-            console.log('Booking captured:', dateStr, timeStr);
+            console.log('Booking captured from Cal.com:', dateStr, timeStr);
             
             setCapturedBooking({
               date: dateStr,
               time: timeStr,
-              bookingId: bookingData.uid || bookingData.id || 'cal-booking',
+              bookingId: bookingInfo.uid || bookingInfo.id || 'cal-booking',
             });
+            setBookingConfirmed(true);
+          } else {
+            // If no startTime but booking was successful, mark as confirmed
+            // and we'll capture the date from the confirmation email
+            console.log('Booking confirmed but no startTime in event');
             setBookingConfirmed(true);
           }
         }
-        
-        // Also check for the eventTypeSlug which indicates booking flow completion
-        if (data.type === 'CAL:linkReady' || data.type === 'CAL:eventTypeSlug') {
-          console.log('Cal.com ready:', data);
-        }
       } catch (e) {
-        // Not a JSON message, ignore
+        // Not a JSON message or parse error, ignore
+        console.log('Cal.com message parse error:', e);
       }
     };
 
@@ -89,25 +89,10 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
   };
 
   const handleContinue = () => {
-    if (capturedBooking) {
-      onScheduled({
-        scheduledDate: capturedBooking.date,
-        scheduledTime: capturedBooking.time,
-        calBookingId: capturedBooking.bookingId,
-        calBookingUrl: `https://cal.com/${calLink}`,
-      });
-    }
-  };
-
-  const handleManualConfirm = () => {
-    if (!selectedDate || !selectedTime) {
-      alert('Please enter the date and time you selected');
-      return;
-    }
     onScheduled({
-      scheduledDate: selectedDate,
-      scheduledTime: selectedTime,
-      calBookingId: 'manual-confirmation',
+      scheduledDate: capturedBooking?.date || new Date().toISOString().split('T')[0],
+      scheduledTime: capturedBooking?.time || 'Scheduled via Cal.com',
+      calBookingId: capturedBooking?.bookingId || 'cal-booking',
       calBookingUrl: `https://cal.com/${calLink}`,
     });
   };
@@ -131,7 +116,7 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
       </div>
 
       {/* Show confirmation if booking was captured */}
-      {bookingConfirmed && capturedBooking ? (
+      {bookingConfirmed ? (
         <div className="max-w-md mx-auto">
           <div className="bg-white rounded-2xl shadow-lg shadow-charcoal/5 p-6 text-center">
             <div className="w-16 h-16 bg-sage/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -142,24 +127,28 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
               Time Confirmed
             </h3>
             
-            <div className="bg-bone/50 rounded-xl p-4 mb-6">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Calendar className="w-5 h-5 text-sage" />
-                <span className="font-inter font-medium text-charcoal">
-                  {formatCapturedDate()}
-                </span>
+            {capturedBooking?.date && (
+              <div className="bg-bone/50 rounded-xl p-4 mb-6">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Calendar className="w-5 h-5 text-sage" />
+                  <span className="font-inter font-medium text-charcoal">
+                    {formatCapturedDate()}
+                  </span>
+                </div>
+                {capturedBooking?.time && (
+                  <div className="flex items-center justify-center gap-2">
+                    <Clock className="w-5 h-5 text-sage" />
+                    <span className="font-inter font-medium text-charcoal">
+                      {capturedBooking.time}
+                    </span>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center justify-center gap-2">
-                <Clock className="w-5 h-5 text-sage" />
-                <span className="font-inter font-medium text-charcoal">
-                  {capturedBooking.time}
-                </span>
-              </div>
-            </div>
+            )}
 
             <button
               onClick={handleContinue}
-              className="btn-primary w-full"
+              className="btn-primary w-full text-lg py-4"
             >
               Continue to Payment
             </button>
@@ -172,83 +161,6 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
               className="mt-3 text-charcoal/60 hover:text-charcoal font-inter text-sm"
             >
               Choose a different time
-            </button>
-          </div>
-        </div>
-      ) : manualEntry ? (
-        /* Manual entry fallback */
-        <div className="max-w-md mx-auto bg-white rounded-2xl shadow-lg shadow-charcoal/5 p-6">
-          <h3 className="font-inter font-semibold text-charcoal mb-4 text-center">
-            Enter Your Appointment Details
-          </h3>
-          <p className="text-charcoal/60 text-sm font-inter mb-4 text-center">
-            Enter the date and time you selected on Cal.com
-          </p>
-          
-          <div className="space-y-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-charcoal mb-1.5">
-                <Calendar className="w-4 h-4 inline mr-1" />
-                Date Selected
-              </label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl
-                           font-inter focus:outline-none focus:ring-2 focus:ring-sage"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-charcoal mb-1.5">
-                <Clock className="w-4 h-4 inline mr-1" />
-                Time Selected
-              </label>
-              <select
-                value={selectedTime}
-                onChange={(e) => setSelectedTime(e.target.value)}
-                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl
-                           font-inter focus:outline-none focus:ring-2 focus:ring-sage"
-              >
-                <option value="">Select a time</option>
-                <option value="8:00 AM">8:00 AM</option>
-                <option value="8:30 AM">8:30 AM</option>
-                <option value="9:00 AM">9:00 AM</option>
-                <option value="9:30 AM">9:30 AM</option>
-                <option value="10:00 AM">10:00 AM</option>
-                <option value="10:30 AM">10:30 AM</option>
-                <option value="11:00 AM">11:00 AM</option>
-                <option value="11:30 AM">11:30 AM</option>
-                <option value="12:00 PM">12:00 PM</option>
-                <option value="12:30 PM">12:30 PM</option>
-                <option value="1:00 PM">1:00 PM</option>
-                <option value="1:30 PM">1:30 PM</option>
-                <option value="2:00 PM">2:00 PM</option>
-                <option value="2:30 PM">2:30 PM</option>
-                <option value="3:00 PM">3:00 PM</option>
-                <option value="3:30 PM">3:30 PM</option>
-                <option value="4:00 PM">4:00 PM</option>
-                <option value="4:30 PM">4:30 PM</option>
-                <option value="5:00 PM">5:00 PM</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => setManualEntry(false)}
-              className="btn-secondary flex-1"
-            >
-              Back
-            </button>
-            <button
-              onClick={handleManualConfirm}
-              disabled={!selectedDate || !selectedTime}
-              className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Continue to Payment
             </button>
           </div>
         </div>
@@ -268,8 +180,11 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
             />
           </div>
 
-          {/* Action Buttons */}
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* Helper text */}
+          <div className="mt-6 text-center">
+            <p className="text-charcoal/60 font-inter text-sm mb-3">
+              Select a date and time above, then complete the booking.
+            </p>
             <a
               href={calUrl.replace('&embed=true', '')}
               target="_blank"
@@ -278,19 +193,9 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
                          font-inter text-sm transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
-              Open in new tab
+              Having trouble? Open in new tab
             </a>
-            <button
-              onClick={() => setManualEntry(true)}
-              className="btn-secondary px-6 py-2"
-            >
-              Enter time manually
-            </button>
           </div>
-          
-          <p className="mt-4 text-center text-sm text-charcoal/50 font-inter">
-            Complete your booking in the calendar above. It will automatically be captured.
-          </p>
         </>
       )}
 
