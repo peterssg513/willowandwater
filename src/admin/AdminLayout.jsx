@@ -23,7 +23,6 @@ import {
   Calculator
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import { initializeDemoData } from './demoData';
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -44,71 +43,39 @@ const navigation = [
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
-// Check if Supabase is configured
-const isSupabaseConfigured = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
-
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [demoMode, setDemoMode] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Initialize demo data immediately on mount
-    initializeDemoData();
-    
     // Check authentication
     const checkAuth = async () => {
-      // If Supabase isn't configured, enable demo mode
-      if (!isSupabaseConfigured) {
-        console.log('Supabase not configured, using demo mode');
-        setDemoMode(true);
-        setUser({ email: 'demo@willowandwater.com' });
-        setLoading(false);
-        return;
-      }
-
       try {
-        console.log('Checking Supabase session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        console.log('Session result:', session ? 'Found user' : 'No session', error || '');
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
           setUser(session.user);
-          console.log('User authenticated:', session.user.email);
-        } else {
-          console.log('No active session');
         }
       } catch (error) {
         console.error('Auth check error:', error);
-        // Enable demo mode on auth error
-        setDemoMode(true);
-        setUser({ email: 'demo@willowandwater.com' });
       }
       setLoading(false);
     };
     
     checkAuth();
 
-    // Listen for auth changes (only if Supabase is configured)
-    if (isSupabaseConfigured) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user || null);
-      });
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
 
-      return () => subscription.unsubscribe();
-    }
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleSignOut = async () => {
-    if (demoMode) {
-      setUser(null);
-      setDemoMode(false);
-      navigate('/admin/login');
-      return;
-    }
     await supabase.auth.signOut();
     navigate('/admin/login');
   };
@@ -121,7 +88,7 @@ const AdminLayout = () => {
     );
   }
 
-  if (!user && !demoMode) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-bone flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4">
@@ -204,12 +171,6 @@ const AdminLayout = () => {
 
           {/* User section */}
           <div className="p-4 border-t border-charcoal/10">
-            {demoMode && (
-              <div className="mb-3 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-xs font-inter text-yellow-800 font-medium">Demo Mode</p>
-                <p className="text-xs text-yellow-700">Connect Supabase for full features</p>
-              </div>
-            )}
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-sage/10 flex items-center justify-center">
                 <span className="font-inter font-semibold text-sage">
@@ -220,7 +181,7 @@ const AdminLayout = () => {
                 <p className="font-inter text-sm font-medium text-charcoal truncate">
                   {user?.email || 'Admin'}
                 </p>
-                <p className="text-xs text-charcoal/50">{demoMode ? 'Demo User' : 'Admin'}</p>
+                <p className="text-xs text-charcoal/50">Admin</p>
               </div>
             </div>
             <button
@@ -229,7 +190,7 @@ const AdminLayout = () => {
                          hover:bg-charcoal/5 rounded-lg font-inter text-sm transition-colors"
             >
               <LogOut className="w-4 h-4" />
-              {demoMode ? 'Exit Demo' : 'Sign Out'}
+              Sign Out
             </button>
           </div>
         </div>
