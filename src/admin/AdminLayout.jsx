@@ -12,7 +12,8 @@ import {
   LogOut,
   Menu,
   X,
-  Leaf
+  Leaf,
+  ClipboardList
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -68,6 +69,7 @@ const AdminLayout = () => {
     { path: '/admin/customers', icon: Users, label: 'Customers' },
     { path: '/admin/schedule', icon: CalendarDays, label: 'Schedule' },
     { path: '/admin/cleaners', icon: UserCog, label: 'Cleaners' },
+    { path: '/admin/checklists', icon: ClipboardList, label: 'Checklists' },
     { path: '/admin/inventory', icon: Package, label: 'Inventory' },
     { path: '/admin/communications', icon: MessageSquare, label: 'Communications' },
   ];

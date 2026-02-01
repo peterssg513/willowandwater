@@ -78,7 +78,10 @@ const Cleaners = () => {
             customers (
               name,
               address,
-              city
+              city,
+              phone,
+              access_type,
+              access_instructions
             )
           `)
           .eq('cleaner_id', cleaner.id)
@@ -157,11 +160,18 @@ const Cleaners = () => {
       const jobsList = dayJobs.map(job => {
         const customer = job.customers;
         const time = job.scheduled_time === 'morning' ? '9am - 12pm' : '1pm - 5pm';
+        const accessInfo = customer?.access_instructions 
+          ? `<br><span style="color: #71797E; font-size: 12px;">🔑 ${customer?.access_type?.replace('_', ' ')}: ${customer?.access_instructions}</span>`
+          : '';
         return `
           <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #eee; font-size: 14px;">${time}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee; font-size: 14px;">${customer?.name || 'N/A'}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee; font-size: 14px;">${customer?.address || ''}, ${customer?.city || ''}</td>
+            <td style="padding: 12px 10px; border-bottom: 1px solid #eee; font-size: 14px; vertical-align: top;">${time}</td>
+            <td style="padding: 12px 10px; border-bottom: 1px solid #eee; font-size: 14px; vertical-align: top;">
+              <strong>${customer?.name || 'N/A'}</strong><br>
+              <span style="color: #666;">${customer?.address || ''}, ${customer?.city || ''}</span><br>
+              <a href="tel:${customer?.phone}" style="color: #71797E;">📞 ${customer?.phone || 'No phone'}</a>
+              ${accessInfo}
+            </td>
           </tr>
         `;
       }).join('');
@@ -171,9 +181,8 @@ const Cleaners = () => {
           <h4 style="color: #71797E; margin: 0 0 10px 0; font-size: 16px;">${dayName}</h4>
           <table cellpadding="0" cellspacing="0" width="100%" style="background: #F9F6EE; border-radius: 8px;">
             <tr>
-              <th style="text-align: left; padding: 10px; font-size: 12px; color: #666;">Time</th>
-              <th style="text-align: left; padding: 10px; font-size: 12px; color: #666;">Customer</th>
-              <th style="text-align: left; padding: 10px; font-size: 12px; color: #666;">Address</th>
+              <th style="text-align: left; padding: 10px; font-size: 12px; color: #666; width: 100px;">Time</th>
+              <th style="text-align: left; padding: 10px; font-size: 12px; color: #666;">Customer Details</th>
             </tr>
             ${jobsList}
           </table>
