@@ -3,32 +3,53 @@
  * 
  * Fetches and caches pricing settings from the database
  * Falls back to hardcoded defaults if database is unavailable
+ * 
+ * Updated for Profit-Based Pricing Model
  */
 
 import { supabase } from '../lib/supabaseClient';
 
-// Default settings (used as fallback)
+// Default settings (used as fallback) - Updated for profit-based pricing
 const DEFAULT_SETTINGS = {
-  // Pricing
-  base_rate_per_500_sqft: 40,
-  min_first_clean_price: 150,
-  min_recurring_price: 120,
-  first_clean_multiplier: 1.25,
-  extra_bathroom_price: 15,
-  extra_bedroom_price: 10,
+  // Labor costs
+  base_hourly_rate: 26,
+  payroll_burden_percent: 0.154,       // IL taxes + workers comp (15.4%)
+  loaded_hourly_rate: 30,              // base × (1 + burden)
+  solo_cleaner_max_sqft: 1999,         // 2 cleaners for homes >= 2000 sqft
   
-  // Duration
+  // Weekly costs per cleaner
+  weekly_supplies_cost: 24.50,         // Branch Basics ($49/2 weeks)
+  weekly_gas_cost: 50,
+  expected_jobs_per_week: 9,
+  
+  // Equipment amortization
+  annual_equipment_cost: 750,
+  expected_jobs_per_year: 450,
+  
+  // Monthly overhead
+  monthly_marketing: 250,
+  monthly_admin: 250,
+  monthly_phone: 20,
+  monthly_website: 5,
+  monthly_insurance: 75,
+  monthly_overhead_total: 600,
+  
+  // Pricing targets
+  target_margin_percent: 0.45,         // 45% target margin
+  minimum_price: 115,                  // Never quote below this
+  first_clean_hours_multiplier: 1.5,   // First clean takes 50% longer
+  
+  // Duration calculation
   base_minutes_per_500_sqft: 30,
   extra_bathroom_minutes: 15,
   extra_bedroom_minutes: 10,
-  first_clean_duration_multiplier: 1.5,
   included_bathrooms: 2,
   included_bedrooms: 3,
   
-  // Discounts
-  weekly_discount: 0.35,
-  biweekly_discount: 0.20,
-  monthly_discount: 0.10,
+  // Discounts (reduced to maintain profitability)
+  weekly_discount: 0.15,               // 15% off (was 35%)
+  biweekly_discount: 0.10,             // 10% off (was 20%)
+  monthly_discount: 0.05,              // 5% off (was 10%)
   referral_bonus: 25,
   referred_discount: 25,
   
@@ -41,6 +62,14 @@ const DEFAULT_SETTINGS = {
   booking_lead_days: 7,
   booking_max_days: 60,
   max_jobs_per_cleaner_per_slot: 1,
+  
+  // Legacy settings (kept for backwards compatibility)
+  base_rate_per_500_sqft: 40,
+  min_first_clean_price: 115,
+  min_recurring_price: 115,
+  first_clean_multiplier: 1.5,
+  extra_bathroom_price: 15,
+  extra_bedroom_price: 10,
 };
 
 // Cache for settings

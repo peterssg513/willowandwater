@@ -15,10 +15,19 @@ import {
   TrendingUp,
   Users,
   Home,
-  Loader2
+  Loader2,
+  PieChart,
+  Truck,
+  Package,
+  Building2
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import { formatPrice } from '../utils/pricingLogic';
+import { 
+  formatPrice, 
+  calculateProfitablePricing,
+  getCostSettings,
+  formatPercent
+} from '../utils/profitPricingLogic';
 
 // Category configuration with icons and colors
 const CATEGORIES = {
@@ -180,52 +189,26 @@ const Pricing = () => {
     return acc;
   }, {});
 
-  // Calculate preview price
+  // Calculate preview price using profit-based logic
   const calculatePreview = () => {
-    const getVal = (key, defaultVal) => {
-      if (editedValues.hasOwnProperty(key)) return parseFloat(editedValues[key]) || defaultVal;
-      const setting = settings.find(s => s.key === key);
-      if (setting) {
-        let val = setting.value;
-        if (typeof val === 'string') val = parseFloat(val);
-        return val || defaultVal;
-      }
-      return defaultVal;
+    const pricing = calculateProfitablePricing({
+      sqft: calcParams.sqft,
+      bedrooms: calcParams.bedrooms,
+      bathrooms: calcParams.bathrooms,
+      frequency: calcParams.frequency,
+    });
+    
+    return {
+      ...pricing,
+      basePrice: pricing.recurring.basePrice,
+      firstCleanPrice: pricing.firstCleanPrice,
+      recurringPrice: pricing.recurringPrice,
+      discount: pricing.recurring.frequencyDiscount / 100,
     };
-
-    const baseRate = getVal('base_rate_per_500_sqft', 40);
-    const minFirstClean = getVal('min_first_clean_price', 150);
-    const minRecurring = getVal('min_recurring_price', 120);
-    const firstCleanMultiplier = getVal('first_clean_multiplier', 1.25);
-    const extraBathPrice = getVal('extra_bathroom_price', 15);
-    const extraBedPrice = getVal('extra_bedroom_price', 10);
-    const includedBaths = getVal('included_bathrooms', 2);
-    const includedBeds = getVal('included_bedrooms', 3);
-
-    const weeklyDiscount = getVal('weekly_discount', 0.35);
-    const biweeklyDiscount = getVal('biweekly_discount', 0.20);
-    const monthlyDiscount = getVal('monthly_discount', 0.10);
-
-    const discounts = { weekly: weeklyDiscount, biweekly: biweeklyDiscount, monthly: monthlyDiscount, onetime: 0 };
-
-    // Calculate base price
-    let basePrice = Math.ceil(calcParams.sqft / 500) * baseRate;
-    basePrice += Math.max(0, calcParams.bathrooms - includedBaths) * extraBathPrice;
-    basePrice += Math.max(0, calcParams.bedrooms - includedBeds) * extraBedPrice;
-
-    // First clean price
-    let firstCleanPrice = Math.round(basePrice * firstCleanMultiplier);
-    firstCleanPrice = Math.max(firstCleanPrice, minFirstClean);
-
-    // Recurring price with frequency discount
-    const discount = discounts[calcParams.frequency] || 0;
-    let recurringPrice = Math.round(basePrice * (1 - discount));
-    recurringPrice = Math.max(recurringPrice, minRecurring);
-
-    return { basePrice, firstCleanPrice, recurringPrice, discount };
   };
 
   const preview = calculatePreview();
+  const costSettings = getCostSettings();
   const hasChanges = Object.keys(editedValues).length > 0;
 
   if (loading) {
@@ -288,35 +271,47 @@ const Pricing = () => {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Settings Panel */}
         <div className="lg:col-span-2 space-y-4">
-          {/* How Pricing Works */}
+          {/* How Profit-Based Pricing Works */}
           <div className="bg-gradient-to-br from-sage/10 to-sage/5 rounded-2xl border border-sage/20 p-6">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 bg-sage rounded-xl flex items-center justify-center flex-shrink-0">
                 <Lightbulb className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="font-inter font-semibold text-charcoal mb-2">How Pricing Works</h3>
+                <h3 className="font-inter font-semibold text-charcoal mb-2">Profit-Based Pricing Model</h3>
                 <div className="text-sm text-charcoal/70 space-y-3 font-inter">
                   <p>
-                    <strong>Base Price Formula:</strong><br />
-                    (Square Feet ÷ 500) × Base Rate + Extra Bathrooms × $15 + Extra Bedrooms × $10
-                  </p>
-                  <p>
-                    <strong>First Clean:</strong> Base Price × First Clean Multiplier (covers deep cleaning, extra time)
-                  </p>
-                  <p>
-                    <strong>Recurring Price:</strong> Base Price × (1 - Frequency Discount)
+                    <strong>Price = Total Cost ÷ (1 - Target Margin)</strong><br />
+                    Every quote is calculated from actual costs to guarantee profitability.
                   </p>
                   <div className="bg-white/50 rounded-lg p-3 mt-3">
-                    <p className="font-medium text-charcoal mb-1">💡 Cost Considerations Built In:</p>
-                    <ul className="text-xs space-y-1 text-charcoal/60">
-                      <li>• <strong>Labor costs:</strong> ~60% of job price goes to cleaners</li>
-                      <li>• <strong>Supplies:</strong> ~$8-12 per job (Branch Basics products)</li>
-                      <li>• <strong>Travel time:</strong> Factored into duration estimates</li>
-                      <li>• <strong>Overhead:</strong> Insurance, software, marketing (~15%)</li>
-                      <li>• <strong>Profit margin:</strong> Target 15-20% after all costs</li>
+                    <p className="font-medium text-charcoal mb-2">📊 Your Cost Components:</p>
+                    <ul className="text-xs space-y-1.5 text-charcoal/60">
+                      <li className="flex items-center gap-2">
+                        <Users className="w-3 h-3 text-sage" />
+                        <strong>Labor:</strong> ${costSettings.loadedHourlyRate}/hr loaded (${costSettings.baseHourlyRate}/hr + {(costSettings.payrollBurdenPercent * 100).toFixed(1)}% burden)
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Package className="w-3 h-3 text-sage" />
+                        <strong>Supplies & Gas:</strong> ${costSettings.perJobSuppliesGas.toFixed(2)}/job per cleaner
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Truck className="w-3 h-3 text-sage" />
+                        <strong>Equipment:</strong> ${costSettings.perJobEquipment.toFixed(2)}/job per cleaner (amortized)
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Building2 className="w-3 h-3 text-sage" />
+                        <strong>Overhead:</strong> ${costSettings.monthlyOverheadTotal}/mo ÷ jobs = variable per job
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <TrendingUp className="w-3 h-3 text-green-600" />
+                        <strong>Target Margin:</strong> {(costSettings.targetMarginPercent * 100).toFixed(0)}% | Min Price: ${costSettings.minimumPrice}
+                      </li>
                     </ul>
                   </div>
+                  <p className="text-xs text-charcoal/50 mt-2">
+                    Team size: 1 cleaner for &lt;2,000 sqft, 2 cleaners for ≥2,000 sqft
+                  </p>
                 </div>
               </div>
             </div>
@@ -495,33 +490,84 @@ const Pricing = () => {
               </div>
             </div>
 
-            {/* Profit Estimate */}
+            {/* Real Cost Breakdown */}
             <div className="mt-4 bg-sage/5 rounded-xl p-4">
-              <h4 className="text-sm font-medium text-charcoal mb-2">Est. Profit per Job</h4>
-              <div className="space-y-1 text-xs text-charcoal/60">
-                <div className="flex justify-between">
-                  <span>Revenue</span>
-                  <span>{formatPrice(preview.recurringPrice)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Cleaner Pay (~60%)</span>
-                  <span className="text-red-600">-{formatPrice(preview.recurringPrice * 0.6)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Supplies (~$10)</span>
-                  <span className="text-red-600">-$10</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Overhead (~15%)</span>
-                  <span className="text-red-600">-{formatPrice(preview.recurringPrice * 0.15)}</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t border-sage/20 font-medium text-charcoal">
-                  <span>Est. Profit</span>
-                  <span className="text-green-600">
-                    {formatPrice(preview.recurringPrice - (preview.recurringPrice * 0.6) - 10 - (preview.recurringPrice * 0.15))}
-                  </span>
+              <div className="flex items-center gap-2 mb-3">
+                <PieChart className="w-4 h-4 text-sage" />
+                <h4 className="text-sm font-semibold text-charcoal">Real Cost Breakdown</h4>
+              </div>
+              
+              {/* First Clean Breakdown */}
+              <div className="mb-4">
+                <p className="text-xs font-medium text-charcoal/70 mb-2">First Clean ({preview.cleanerCount} cleaner{preview.cleanerCount > 1 ? 's' : ''})</p>
+                <div className="space-y-1 text-xs text-charcoal/60">
+                  <div className="flex justify-between">
+                    <span>Labor ({(preview.firstClean?.durationHours || 0).toFixed(1)}h × ${costSettings.loadedHourlyRate} × {preview.cleanerCount})</span>
+                    <span className="text-red-600">-{formatPrice(preview.firstClean?.laborCost || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Supplies & Gas</span>
+                    <span className="text-red-600">-{formatPrice(preview.firstClean?.suppliesGasCost || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Equipment</span>
+                    <span className="text-red-600">-{formatPrice(preview.firstClean?.equipmentCost || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Overhead</span>
+                    <span className="text-red-600">-{formatPrice(preview.firstClean?.overheadCost || 0)}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-sage/20 font-medium">
+                    <span className="text-charcoal">Total Cost</span>
+                    <span className="text-charcoal">{formatPrice(preview.firstClean?.totalCost || 0)}</span>
+                  </div>
+                  <div className="flex justify-between font-medium">
+                    <span className="text-charcoal">Quote Price</span>
+                    <span className="text-charcoal">{formatPrice(preview.firstCleanPrice)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold pt-1">
+                    <span className="text-green-700">Profit ({preview.firstClean?.margin || 0}% margin)</span>
+                    <span className="text-green-600">{formatPrice(preview.firstClean?.profit || 0)}</span>
+                  </div>
                 </div>
               </div>
+
+              {/* Recurring Breakdown */}
+              {calcParams.frequency !== 'onetime' && (
+                <div className="pt-3 border-t border-charcoal/10">
+                  <p className="text-xs font-medium text-charcoal/70 mb-2">Recurring Clean</p>
+                  <div className="space-y-1 text-xs text-charcoal/60">
+                    <div className="flex justify-between">
+                      <span>Labor ({(preview.recurring?.durationHours || 0).toFixed(1)}h × ${costSettings.loadedHourlyRate} × {preview.cleanerCount})</span>
+                      <span className="text-red-600">-{formatPrice(preview.recurring?.laborCost || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Supplies & Gas</span>
+                      <span className="text-red-600">-{formatPrice(preview.recurring?.suppliesGasCost || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Equipment</span>
+                      <span className="text-red-600">-{formatPrice(preview.recurring?.equipmentCost || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Overhead</span>
+                      <span className="text-red-600">-{formatPrice(preview.recurring?.overheadCost || 0)}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-sage/20 font-medium">
+                      <span className="text-charcoal">Total Cost</span>
+                      <span className="text-charcoal">{formatPrice(preview.recurring?.totalCost || 0)}</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                      <span className="text-charcoal">Quote Price (after {preview.recurring?.frequencyDiscount || 0}% discount)</span>
+                      <span className="text-charcoal">{formatPrice(preview.recurringPrice)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold pt-1">
+                      <span className="text-green-700">Profit ({preview.recurring?.margin || 0}% margin)</span>
+                      <span className="text-green-600">{formatPrice(preview.recurring?.profit || 0)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {hasChanges && (

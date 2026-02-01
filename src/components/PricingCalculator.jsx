@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Leaf, Minus, Plus, Shield, Calendar, Clock } from 'lucide-react';
+import { Leaf, Minus, Plus, Shield, Calendar, Clock, Users } from 'lucide-react';
 import { 
   calculateCleaningPrice, 
   formatPrice, 
   formatDuration,
-  getFrequencyBadge 
-} from '../utils/pricingLogic';
+  getFrequencyBadge,
+  getCleanerCount
+} from '../utils/profitPricingLogic';
 import { BookingFlow } from './booking';
 
 const PricingCalculator = () => {
@@ -28,13 +29,16 @@ const PricingCalculator = () => {
     setIsBookingOpen(true);
   };
 
-  // Frequency options
+  // Frequency options (discounts reduced to maintain profitability)
   const frequencyOptions = [
     { id: 'weekly', label: 'Weekly' },
     { id: 'biweekly', label: 'Bi-Weekly' },
     { id: 'monthly', label: 'Monthly' },
     { id: 'onetime', label: 'One-Time' },
   ];
+
+  // Get number of cleaners for display
+  const cleanerCount = getCleanerCount(sqft);
 
   return (
     <section id="pricing" className="py-16 md:py-24 bg-sage/5">
@@ -164,12 +168,20 @@ const PricingCalculator = () => {
 
           {/* Results Section */}
           <div>
-            {/* Duration Estimate */}
-            <div className="flex items-center justify-center gap-2 mb-6 text-charcoal/60">
-              <Clock className="w-4 h-4" />
-              <span className="font-inter text-sm">
-                Estimated duration: {formatDuration(pricing.firstCleanDuration)}
-              </span>
+            {/* Duration & Team Info */}
+            <div className="flex flex-wrap items-center justify-center gap-4 mb-6 text-charcoal/60">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                <span className="font-inter text-sm">
+                  Estimated duration: {formatDuration(pricing.firstCleanDuration)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                <span className="font-inter text-sm">
+                  {cleanerCount === 1 ? '1 cleaner' : `${cleanerCount} cleaners`}
+                </span>
+              </div>
             </div>
 
             {/* Price Cards */}
