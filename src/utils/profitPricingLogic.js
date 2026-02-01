@@ -8,61 +8,197 @@
  * - Overhead (monthly fixed costs / job volume)
  * 
  * Price = Total Cost / (1 - Target Margin)
+ * 
+ * Settings are loaded from database and cached for performance.
  */
 
+import { supabase } from '../lib/supabaseClient';
+
 // ============================================
-// COST CONSTANTS
+// DEFAULT COST SETTINGS (fallback if DB unavailable)
 // ============================================
 
-export const COST_SETTINGS = {
+const DEFAULT_COST_SETTINGS = {
   // Labor
-  baseHourlyRate: 26.00,           // Base pay per hour
-  payrollBurdenPercent: 0.154,     // IL taxes + workers comp (15.4%)
-  loadedHourlyRate: 30.00,         // baseHourlyRate × (1 + payrollBurdenPercent)
-  
-  // Cleaner thresholds
-  soloCleanerMaxSqft: 1999,        // Solo cleaner for homes < 2000 sqft
+  base_hourly_rate: 26.00,
+  payroll_burden_percent: 0.154,
+  loaded_hourly_rate: 30.00,
+  solo_cleaner_max_sqft: 1999,
   
   // Weekly costs per cleaner
-  weeklySuppliesCost: 24.50,       // Branch Basics ($49 / 2 weeks)
-  weeklyGasCost: 50.00,            // Gas allowance
-  weeklyTotalPerCleaner: 74.50,    // supplies + gas
-  expectedJobsPerWeek: 9,          // Target: 8-10, using 9 for calculations
-  perJobSuppliesGas: 8.28,         // weeklyTotal / expectedJobsPerWeek
+  weekly_supplies_cost: 24.50,
+  weekly_gas_cost: 50.00,
+  expected_jobs_per_week: 9,
   
-  // Equipment amortization (per cleaner per year)
-  annualEquipmentCost: 750,        // SEBO + maintenance + microfiber + misc
-  expectedJobsPerYear: 450,        // 9 jobs/week × 50 weeks
-  perJobEquipment: 1.67,           // annualEquipmentCost / expectedJobsPerYear
+  // Equipment amortization
+  annual_equipment_cost: 750,
+  expected_jobs_per_year: 450,
   
   // Monthly overhead
-  monthlyMarketing: 250,
-  monthlyAdmin: 250,
-  monthlyPhone: 20,
-  monthlyWebsite: 5,
-  monthlyInsurance: 75,
-  monthlyOverheadTotal: 600,       // Sum of above
+  monthly_marketing: 250,
+  monthly_admin: 250,
+  monthly_phone: 20,
+  monthly_website: 5,
+  monthly_insurance: 75,
+  monthly_overhead_total: 600,
   
   // Pricing
-  targetMarginPercent: 0.45,       // 45% target (range: 40-50%)
-  minimumPrice: 115,               // Never quote below this
-  firstCleanHoursMultiplier: 1.5,  // First clean takes 50% longer
+  target_margin_percent: 0.45,
+  minimum_price: 115,
+  first_clean_hours_multiplier: 1.5,
   
   // Duration calculation
-  baseMinutesPer500Sqft: 30,
-  extraBathroomMinutes: 15,
-  extraBedroomMinutes: 10,
-  includedBathrooms: 2,
-  includedBedrooms: 3,
+  base_minutes_per_500_sqft: 30,
+  extra_bathroom_minutes: 15,
+  extra_bedroom_minutes: 10,
+  included_bathrooms: 2,
+  included_bedrooms: 3,
   
-  // Frequency discounts (applied AFTER ensuring profitability)
-  frequencyDiscounts: {
-    weekly: 0.15,      // 15% off recurring (reduced from 35% to maintain margin)
-    biweekly: 0.10,    // 10% off recurring (reduced from 20%)
-    monthly: 0.05,     // 5% off recurring (reduced from 10%)
-    onetime: 0,        // No discount
-  },
+  // Frequency discounts
+  weekly_discount: 0.15,
+  biweekly_discount: 0.10,
+  monthly_discount: 0.05,
 };
+
+// ============================================
+// SETTINGS CACHE
+// ============================================
+
+let settingsCache = null;
+let cacheTimestamp = null;
+const CACHE_DURATION = 60 * 1000; // 1 minute cache (short for admin responsiveness)
+
+/**
+ * Fetch cost settings from database
+ * @param {boolean} forceRefresh - Force refresh from database
+ * @returns {Promise<Object>} Settings object
+ */
+export async function fetchCostSettings(forceRefresh = false) {
+  // Return cache if valid
+  if (!forceRefresh && settingsCache && cacheTimestamp && (Date.now() - cacheTimestamp < CACHE_DURATION)) {
+    return settingsCache;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('pricing_settings')
+      .select('key, value');
+
+    if (error) {
+      console.warn('Failed to fetch cost settings, using defaults:', error);
+      return buildSettingsObject(DEFAULT_COST_SETTINGS);
+    }
+
+    // Convert array to object
+    const dbSettings = {};
+    data.forEach(row => {
+      let value = row.value;
+      // Parse numeric strings
+      if (typeof value === 'string' && !isNaN(value)) {
+        value = parseFloat(value);
+      }
+      dbSettings[row.key] = value;
+    });
+
+    // Merge with defaults
+    const settings = { ...DEFAULT_COST_SETTINGS, ...dbSettings };
+    
+    // Build computed settings
+    const computed = buildSettingsObject(settings);
+
+    // Update cache
+    settingsCache = computed;
+    cacheTimestamp = Date.now();
+
+    return computed;
+  } catch (err) {
+    console.error('Error fetching cost settings:', err);
+    return buildSettingsObject(DEFAULT_COST_SETTINGS);
+  }
+}
+
+/**
+ * Build settings object with computed values
+ */
+function buildSettingsObject(raw) {
+  const weeklyTotal = (raw.weekly_supplies_cost || 24.50) + (raw.weekly_gas_cost || 50);
+  const expectedJobsPerWeek = raw.expected_jobs_per_week || 9;
+  const expectedJobsPerYear = raw.expected_jobs_per_year || 450;
+  const annualEquipment = raw.annual_equipment_cost || 750;
+  
+  const overheadTotal = (raw.monthly_marketing || 250) + 
+                        (raw.monthly_admin || 250) + 
+                        (raw.monthly_phone || 20) + 
+                        (raw.monthly_website || 5) + 
+                        (raw.monthly_insurance || 75);
+
+  return {
+    // Labor
+    baseHourlyRate: raw.base_hourly_rate || 26,
+    payrollBurdenPercent: raw.payroll_burden_percent || 0.154,
+    loadedHourlyRate: raw.loaded_hourly_rate || 30,
+    soloCleanerMaxSqft: raw.solo_cleaner_max_sqft || 1999,
+    
+    // Weekly costs
+    weeklySuppliesCost: raw.weekly_supplies_cost || 24.50,
+    weeklyGasCost: raw.weekly_gas_cost || 50,
+    weeklyTotalPerCleaner: weeklyTotal,
+    expectedJobsPerWeek: expectedJobsPerWeek,
+    perJobSuppliesGas: round2(weeklyTotal / expectedJobsPerWeek),
+    
+    // Equipment
+    annualEquipmentCost: annualEquipment,
+    expectedJobsPerYear: expectedJobsPerYear,
+    perJobEquipment: round2(annualEquipment / expectedJobsPerYear),
+    
+    // Overhead
+    monthlyMarketing: raw.monthly_marketing || 250,
+    monthlyAdmin: raw.monthly_admin || 250,
+    monthlyPhone: raw.monthly_phone || 20,
+    monthlyWebsite: raw.monthly_website || 5,
+    monthlyInsurance: raw.monthly_insurance || 75,
+    monthlyOverheadTotal: raw.monthly_overhead_total || overheadTotal,
+    
+    // Pricing
+    targetMarginPercent: raw.target_margin_percent || 0.45,
+    minimumPrice: raw.minimum_price || 115,
+    firstCleanHoursMultiplier: raw.first_clean_hours_multiplier || 1.5,
+    
+    // Duration
+    baseMinutesPer500Sqft: raw.base_minutes_per_500_sqft || 30,
+    extraBathroomMinutes: raw.extra_bathroom_minutes || 15,
+    extraBedroomMinutes: raw.extra_bedroom_minutes || 10,
+    includedBathrooms: raw.included_bathrooms || 2,
+    includedBedrooms: raw.included_bedrooms || 3,
+    
+    // Frequency discounts
+    frequencyDiscounts: {
+      weekly: raw.weekly_discount || 0.15,
+      biweekly: raw.biweekly_discount || 0.10,
+      monthly: raw.monthly_discount || 0.05,
+      onetime: 0,
+    },
+  };
+}
+
+/**
+ * Clear settings cache (call after admin updates settings)
+ */
+export function clearSettingsCache() {
+  settingsCache = null;
+  cacheTimestamp = null;
+}
+
+/**
+ * Get current cached settings (sync, for display)
+ * Returns defaults if cache is empty
+ */
+export function getCostSettings() {
+  return settingsCache || buildSettingsObject(DEFAULT_COST_SETTINGS);
+}
+
+// Legacy export for backwards compatibility
+export const COST_SETTINGS = buildSettingsObject(DEFAULT_COST_SETTINGS);
 
 // ============================================
 // DURATION CALCULATION
@@ -70,44 +206,35 @@ export const COST_SETTINGS = {
 
 /**
  * Calculate cleaning duration in hours
- * 
- * @param {Object} params
- * @param {number} params.sqft - Square footage
- * @param {number} params.bedrooms - Number of bedrooms
- * @param {number} params.bathrooms - Number of bathrooms
- * @param {boolean} params.isFirstClean - Whether this is first/deep clean
- * @returns {number} Duration in hours
  */
-export function calculateDurationHours({ sqft, bedrooms, bathrooms, isFirstClean = false }) {
-  const settings = COST_SETTINGS;
+export function calculateDurationHours({ sqft, bedrooms, bathrooms, isFirstClean = false }, settings = null) {
+  const s = settings || getCostSettings();
   
   // Base time from square footage
   const sqftUnits = Math.ceil(sqft / 500);
-  let minutes = sqftUnits * settings.baseMinutesPer500Sqft;
+  let minutes = sqftUnits * s.baseMinutesPer500Sqft;
   
-  // Extra time for additional bathrooms (over 2)
-  const extraBathrooms = Math.max(0, bathrooms - settings.includedBathrooms);
-  minutes += extraBathrooms * settings.extraBathroomMinutes;
+  // Extra time for additional bathrooms
+  const extraBathrooms = Math.max(0, bathrooms - s.includedBathrooms);
+  minutes += extraBathrooms * s.extraBathroomMinutes;
   
-  // Extra time for additional bedrooms (over 3)
-  const extraBedrooms = Math.max(0, bedrooms - settings.includedBedrooms);
-  minutes += extraBedrooms * settings.extraBedroomMinutes;
+  // Extra time for additional bedrooms
+  const extraBedrooms = Math.max(0, bedrooms - s.includedBedrooms);
+  minutes += extraBedrooms * s.extraBedroomMinutes;
   
   // First clean takes longer
   if (isFirstClean) {
-    minutes = Math.ceil(minutes * settings.firstCleanHoursMultiplier);
+    minutes = Math.ceil(minutes * s.firstCleanHoursMultiplier);
   }
   
-  // Round to nearest 15 minutes for scheduling
+  // Round to nearest 15 minutes
   minutes = Math.ceil(minutes / 15) * 15;
   
-  return minutes / 60; // Return hours
+  return minutes / 60;
 }
 
 /**
- * Format duration for display
- * @param {number} minutes - Duration in minutes (for backwards compatibility)
- * @returns {string}
+ * Format duration for display (takes minutes for backwards compatibility)
  */
 export function formatDuration(minutes) {
   const totalMinutes = Math.round(minutes);
@@ -121,8 +248,6 @@ export function formatDuration(minutes) {
 
 /**
  * Format duration from hours
- * @param {number} hours 
- * @returns {string}
  */
 export function formatDurationHours(hours) {
   return formatDuration(hours * 60);
@@ -134,11 +259,10 @@ export function formatDurationHours(hours) {
 
 /**
  * Determine number of cleaners needed
- * @param {number} sqft - Square footage
- * @returns {number} Number of cleaners (1 or 2)
  */
-export function getCleanerCount(sqft) {
-  return sqft > COST_SETTINGS.soloCleanerMaxSqft ? 2 : 1;
+export function getCleanerCount(sqft, settings = null) {
+  const s = settings || getCostSettings();
+  return sqft > s.soloCleanerMaxSqft ? 2 : 1;
 }
 
 // ============================================
@@ -147,37 +271,30 @@ export function getCleanerCount(sqft) {
 
 /**
  * Calculate total job cost breakdown
- * 
- * @param {Object} params
- * @param {number} params.sqft - Square footage
- * @param {number} params.bedrooms - Number of bedrooms
- * @param {number} params.bathrooms - Number of bathrooms
- * @param {boolean} params.isFirstClean - Whether this is first clean
- * @param {number} params.overheadJobsPerMonth - Jobs per month for overhead allocation
- * @returns {Object} Cost breakdown
  */
 export function calculateJobCost({ 
   sqft, 
   bedrooms, 
   bathrooms, 
   isFirstClean = false,
-  overheadJobsPerMonth = 36 // Default: 1 cleaner × 9 jobs/week × 4 weeks
+  overheadJobsPerMonth = 36,
+  settings = null
 }) {
-  const settings = COST_SETTINGS;
-  const cleanerCount = getCleanerCount(sqft);
-  const durationHours = calculateDurationHours({ sqft, bedrooms, bathrooms, isFirstClean });
+  const s = settings || getCostSettings();
+  const cleanerCount = getCleanerCount(sqft, s);
+  const durationHours = calculateDurationHours({ sqft, bedrooms, bathrooms, isFirstClean }, s);
   
   // Labor cost
-  const laborCost = durationHours * settings.loadedHourlyRate * cleanerCount;
+  const laborCost = durationHours * s.loadedHourlyRate * cleanerCount;
   
-  // Supplies & Gas allocation (per cleaner)
-  const suppliesGasCost = settings.perJobSuppliesGas * cleanerCount;
+  // Supplies & Gas allocation
+  const suppliesGasCost = s.perJobSuppliesGas * cleanerCount;
   
-  // Equipment allocation (per cleaner)
-  const equipmentCost = settings.perJobEquipment * cleanerCount;
+  // Equipment allocation
+  const equipmentCost = s.perJobEquipment * cleanerCount;
   
-  // Overhead allocation (fixed monthly / jobs)
-  const overheadCost = settings.monthlyOverheadTotal / Math.max(overheadJobsPerMonth, 1);
+  // Overhead allocation
+  const overheadCost = s.monthlyOverheadTotal / Math.max(overheadJobsPerMonth, 1);
   
   // Total cost
   const totalCost = laborCost + suppliesGasCost + equipmentCost + overheadCost;
@@ -199,29 +316,16 @@ export function calculateJobCost({
 
 /**
  * Calculate profitable price from cost
- * 
- * @param {number} totalCost - Total job cost
- * @param {number} targetMargin - Target profit margin (0-1)
- * @returns {number} Minimum profitable price
  */
-export function calculatePriceFromCost(totalCost, targetMargin = COST_SETTINGS.targetMarginPercent) {
-  // Price = Cost / (1 - Margin)
-  // At 45% margin: Price = Cost / 0.55 = Cost × 1.818
-  const price = totalCost / (1 - targetMargin);
-  return Math.ceil(price); // Round up to whole dollars
+export function calculatePriceFromCost(totalCost, targetMargin = null, settings = null) {
+  const s = settings || getCostSettings();
+  const margin = targetMargin ?? s.targetMarginPercent;
+  const price = totalCost / (1 - margin);
+  return Math.ceil(price);
 }
 
 /**
  * Calculate complete pricing with cost breakdown
- * 
- * @param {Object} params
- * @param {number} params.sqft - Square footage
- * @param {number} params.bedrooms - Number of bedrooms
- * @param {number} params.bathrooms - Number of bathrooms
- * @param {string} params.frequency - Cleaning frequency
- * @param {number} params.overheadJobsPerMonth - For overhead allocation
- * @param {number} params.targetMargin - Target profit margin
- * @returns {Object} Complete pricing breakdown
  */
 export function calculateProfitablePricing({
   sqft,
@@ -229,41 +333,41 @@ export function calculateProfitablePricing({
   bathrooms,
   frequency = 'onetime',
   overheadJobsPerMonth = 36,
-  targetMargin = COST_SETTINGS.targetMarginPercent,
+  targetMargin = null,
+  settings = null,
 }) {
-  const settings = COST_SETTINGS;
+  const s = settings || getCostSettings();
+  const margin = targetMargin ?? s.targetMarginPercent;
   
-  // Calculate first clean (deep clean)
+  // Calculate first clean
   const firstCleanCost = calculateJobCost({
-    sqft,
-    bedrooms,
-    bathrooms,
+    sqft, bedrooms, bathrooms,
     isFirstClean: true,
     overheadJobsPerMonth,
+    settings: s,
   });
   
   // Calculate recurring clean
   const recurringCost = calculateJobCost({
-    sqft,
-    bedrooms,
-    bathrooms,
+    sqft, bedrooms, bathrooms,
     isFirstClean: false,
     overheadJobsPerMonth,
+    settings: s,
   });
   
   // Calculate minimum profitable prices
-  let firstCleanPrice = calculatePriceFromCost(firstCleanCost.totalCost, targetMargin);
-  let recurringBasePrice = calculatePriceFromCost(recurringCost.totalCost, targetMargin);
+  let firstCleanPrice = calculatePriceFromCost(firstCleanCost.totalCost, margin, s);
+  let recurringBasePrice = calculatePriceFromCost(recurringCost.totalCost, margin, s);
   
-  // Apply frequency discount to recurring (NOT first clean)
-  const frequencyDiscount = settings.frequencyDiscounts[frequency] || 0;
+  // Apply frequency discount to recurring
+  const frequencyDiscount = s.frequencyDiscounts[frequency] || 0;
   let recurringPrice = Math.ceil(recurringBasePrice * (1 - frequencyDiscount));
   
   // Enforce minimum price floor
-  firstCleanPrice = Math.max(firstCleanPrice, settings.minimumPrice);
-  recurringPrice = Math.max(recurringPrice, settings.minimumPrice);
+  firstCleanPrice = Math.max(firstCleanPrice, s.minimumPrice);
+  recurringPrice = Math.max(recurringPrice, s.minimumPrice);
   
-  // Calculate actual margins achieved
+  // Calculate actual margins
   const firstCleanProfit = firstCleanPrice - firstCleanCost.totalCost;
   const firstCleanMargin = firstCleanProfit / firstCleanPrice;
   
@@ -271,36 +375,50 @@ export function calculateProfitablePricing({
   const recurringMargin = recurringProfit / recurringPrice;
   
   return {
-    // First clean
     firstClean: {
       price: firstCleanPrice,
       ...firstCleanCost,
       profit: round2(firstCleanProfit),
-      margin: round2(firstCleanMargin * 100), // As percentage
+      margin: round2(firstCleanMargin * 100),
     },
-    
-    // Recurring clean
     recurring: {
       price: recurringPrice,
       basePrice: recurringBasePrice,
-      frequencyDiscount: round2(frequencyDiscount * 100), // As percentage
+      frequencyDiscount: round2(frequencyDiscount * 100),
       ...recurringCost,
       profit: round2(recurringProfit),
-      margin: round2(recurringMargin * 100), // As percentage
+      margin: round2(recurringMargin * 100),
     },
-    
-    // Summary
     frequency,
     cleanerCount: firstCleanCost.cleanerCount,
-    targetMargin: round2(targetMargin * 100),
-    minimumPrice: settings.minimumPrice,
-    
-    // For display compatibility with old calculator
+    targetMargin: round2(margin * 100),
+    minimumPrice: s.minimumPrice,
     firstCleanPrice,
     recurringPrice,
-    firstCleanDuration: Math.round(firstCleanCost.durationHours * 60), // Minutes for display
+    firstCleanDuration: Math.round(firstCleanCost.durationHours * 60),
     recurringDuration: Math.round(recurringCost.durationHours * 60),
   };
+}
+
+// ============================================
+// ASYNC PRICING (fetches latest settings)
+// ============================================
+
+/**
+ * Calculate pricing with fresh settings from database
+ * Use this for actual quotes/bookings
+ */
+export async function calculateProfitablePricingAsync(params) {
+  const settings = await fetchCostSettings();
+  return calculateProfitablePricing({ ...params, settings });
+}
+
+/**
+ * Calculate job cost with fresh settings
+ */
+export async function calculateJobCostAsync(params) {
+  const settings = await fetchCostSettings();
+  return calculateJobCost({ ...params, settings });
 }
 
 // ============================================
@@ -309,7 +427,6 @@ export function calculateProfitablePricing({
 
 /**
  * Drop-in replacement for old calculateCleaningPrice function
- * Maintains same interface but uses profit-based logic
  */
 export function calculateCleaningPrice({
   sqft,
@@ -320,65 +437,43 @@ export function calculateCleaningPrice({
   creditBalance = 0,
   referralDiscount = 0,
 }) {
-  // Get profit-based pricing
+  const settings = getCostSettings();
   const pricing = calculateProfitablePricing({
-    sqft,
-    bedrooms,
-    bathrooms,
-    frequency,
+    sqft, bedrooms, bathrooms, frequency, settings,
   });
   
-  // Handle add-ons (keep same logic)
+  // Handle add-ons
   const addonsPrice = addons.reduce((sum, addon) => sum + (addon.price || 0), 0);
-  
-  // First clean total with add-ons
   const firstCleanTotal = pricing.firstCleanPrice + addonsPrice;
   
   // Apply discounts
   const totalDiscounts = referralDiscount + Math.min(creditBalance, firstCleanTotal);
-  const finalFirstCleanPrice = Math.max(COST_SETTINGS.minimumPrice, firstCleanTotal - totalDiscounts);
+  const finalFirstCleanPrice = Math.max(settings.minimumPrice, firstCleanTotal - totalDiscounts);
   
-  // Deposit calculation (20%)
+  // Deposit calculation
   const depositPercentage = 0.20;
   const depositAmount = Math.round(finalFirstCleanPrice * depositPercentage);
   const remainingAmount = finalFirstCleanPrice - depositAmount;
   
   return {
-    // Base prices (for reference)
     basePrice: pricing.recurring.basePrice,
-    
-    // Final prices
     firstCleanPrice: pricing.firstCleanPrice,
     recurringPrice: pricing.recurringPrice,
-    
-    // Add-ons
     addonsPrice,
     addons,
-    
-    // First clean breakdown
     firstCleanTotal,
     referralDiscount,
     creditApplied: Math.min(creditBalance, firstCleanTotal - referralDiscount),
     totalDiscounts,
     finalFirstCleanPrice,
-    
-    // Payment breakdown
     depositAmount,
     remainingAmount,
-    
-    // Durations
     firstCleanDuration: pricing.firstCleanDuration,
     recurringDuration: pricing.recurringDuration,
-    
-    // Frequency info
     frequency,
     frequencyDiscount: pricing.recurring.frequencyDiscount / 100,
     frequencyDiscountPercent: pricing.recurring.frequencyDiscount,
-    
-    // Savings info
     savingsPerVisit: pricing.firstCleanPrice - pricing.recurringPrice,
-    
-    // NEW: Cost breakdown for admin
     costBreakdown: {
       firstClean: pricing.firstClean,
       recurring: pricing.recurring,
@@ -392,16 +487,10 @@ export function calculateCleaningPrice({
 // UTILITIES
 // ============================================
 
-/**
- * Round to 2 decimal places
- */
 function round2(num) {
   return Math.round(num * 100) / 100;
 }
 
-/**
- * Format price as currency
- */
 export function formatPrice(price) {
   if (price === null || price === undefined) return '$0';
   return new Intl.NumberFormat('en-US', {
@@ -412,29 +501,21 @@ export function formatPrice(price) {
   }).format(price);
 }
 
-/**
- * Format percentage
- */
 export function formatPercent(value) {
   return `${Math.round(value)}%`;
 }
 
-/**
- * Get frequency badge text (updated for new discounts)
- */
 export function getFrequencyBadge(frequency) {
+  const settings = getCostSettings();
   const badges = {
-    weekly: '15% off',
+    weekly: `${Math.round(settings.frequencyDiscounts.weekly * 100)}% off`,
     biweekly: 'Most Popular',
-    monthly: '5% off',
+    monthly: `${Math.round(settings.frequencyDiscounts.monthly * 100)}% off`,
     onetime: 'Deep Clean',
   };
   return badges[frequency] || '';
 }
 
-/**
- * Format frequency for display
- */
 export function formatFrequency(frequency) {
   const labels = {
     weekly: 'Weekly',
@@ -449,45 +530,25 @@ export function formatFrequency(frequency) {
 // ADMIN UTILITIES
 // ============================================
 
-/**
- * Calculate overhead allocation based on actual job volume
- * Call this periodically to update overhead per job
- * 
- * @param {number} jobsLastMonth - Actual jobs completed last month
- * @returns {number} Overhead cost per job
- */
 export function calculateOverheadPerJob(jobsLastMonth) {
-  const overhead = COST_SETTINGS.monthlyOverheadTotal;
-  return round2(overhead / Math.max(jobsLastMonth, 1));
+  const settings = getCostSettings();
+  return round2(settings.monthlyOverheadTotal / Math.max(jobsLastMonth, 1));
 }
 
-/**
- * Get current cost settings for admin display
- */
-export function getCostSettings() {
-  return { ...COST_SETTINGS };
-}
-
-/**
- * Validate that a price is profitable
- * 
- * @param {number} price - Proposed price
- * @param {Object} jobParams - Job parameters
- * @returns {Object} Validation result
- */
 export function validatePriceProfitability(price, jobParams) {
-  const cost = calculateJobCost(jobParams);
+  const settings = getCostSettings();
+  const cost = calculateJobCost({ ...jobParams, settings });
   const profit = price - cost.totalCost;
   const margin = profit / price;
   
   return {
-    isValid: margin >= 0.40, // Minimum 40% margin
+    isValid: margin >= 0.40,
     isProfitable: profit > 0,
     cost: cost.totalCost,
     profit: round2(profit),
     margin: round2(margin * 100),
-    minimumPrice: calculatePriceFromCost(cost.totalCost, 0.40),
-    recommendedPrice: calculatePriceFromCost(cost.totalCost, 0.45),
+    minimumPrice: calculatePriceFromCost(cost.totalCost, 0.40, settings),
+    recommendedPrice: calculatePriceFromCost(cost.totalCost, 0.45, settings),
   };
 }
 
@@ -496,7 +557,12 @@ export function validatePriceProfitability(price, jobParams) {
 // ============================================
 
 export default {
-  // Core functions
+  // Async (use for real quotes)
+  fetchCostSettings,
+  calculateProfitablePricingAsync,
+  calculateJobCostAsync,
+  
+  // Sync (use for UI previews)
   calculateDurationHours,
   calculateJobCost,
   calculatePriceFromCost,
@@ -506,10 +572,12 @@ export default {
   // Utilities
   getCleanerCount,
   formatDuration,
+  formatDurationHours,
   formatPrice,
   formatPercent,
   formatFrequency,
   getFrequencyBadge,
+  clearSettingsCache,
   
   // Admin
   calculateOverheadPerJob,
@@ -518,4 +586,5 @@ export default {
   
   // Constants
   COST_SETTINGS,
+  DEFAULT_COST_SETTINGS,
 };

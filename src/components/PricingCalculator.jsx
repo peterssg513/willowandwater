@@ -5,7 +5,8 @@ import {
   formatPrice, 
   formatDuration,
   getFrequencyBadge,
-  getCleanerCount
+  getCleanerCount,
+  fetchCostSettings
 } from '../utils/profitPricingLogic';
 import { BookingFlow } from './booking';
 
@@ -18,11 +19,22 @@ const PricingCalculator = () => {
   
   // Modal state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  
+  // Settings state - triggers re-render when settings load from DB
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
-  // Calculate price whenever inputs change
+  // Fetch fresh settings from database on mount
+  useEffect(() => {
+    fetchCostSettings(true).then(() => {
+      setSettingsLoaded(true);
+    });
+  }, []);
+
+  // Calculate price whenever inputs change (or settings load)
   const pricing = useMemo(() => {
     return calculateCleaningPrice({ sqft, bedrooms, bathrooms, frequency });
-  }, [sqft, bedrooms, bathrooms, frequency]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sqft, bedrooms, bathrooms, frequency, settingsLoaded]);
 
   // Handle opening booking flow
   const handleOpenBooking = () => {

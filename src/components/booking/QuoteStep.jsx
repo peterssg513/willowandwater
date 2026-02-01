@@ -5,7 +5,8 @@ import {
   calculateCleaningPrice, 
   formatPrice, 
   formatDuration,
-  getFrequencyBadge 
+  getFrequencyBadge,
+  fetchCostSettings
 } from '../../utils/pricingLogic';
 
 /**
@@ -22,6 +23,12 @@ const QuoteStep = ({ data, onComplete, onClose }) => {
   // Available add-ons from database
   const [addonServices, setAddonServices] = useState([]);
   const [loadingAddons, setLoadingAddons] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  // Fetch fresh pricing settings on mount
+  useEffect(() => {
+    fetchCostSettings(true).then(() => setSettingsLoaded(true));
+  }, []);
 
   // Fetch add-on services
   useEffect(() => {
@@ -54,7 +61,7 @@ const QuoteStep = ({ data, onComplete, onClose }) => {
     fetchAddons();
   }, []);
 
-  // Calculate pricing
+  // Calculate pricing (re-calculates when settings load)
   const pricing = useMemo(() => {
     return calculateCleaningPrice({
       sqft,
@@ -63,7 +70,8 @@ const QuoteStep = ({ data, onComplete, onClose }) => {
       frequency,
       addons: selectedAddons,
     });
-  }, [sqft, bedrooms, bathrooms, frequency, selectedAddons]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sqft, bedrooms, bathrooms, frequency, selectedAddons, settingsLoaded]);
 
   // Toggle add-on selection
   const toggleAddon = (addon) => {

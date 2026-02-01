@@ -14,64 +14,137 @@ import {
   Lightbulb,
   TrendingUp,
   Users,
-  Home,
   Loader2,
   PieChart,
   Truck,
   Package,
-  Building2
+  Building2,
+  Zap,
+  Fuel,
+  Wrench
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { 
   formatPrice, 
   calculateProfitablePricing,
-  getCostSettings,
+  fetchCostSettings,
+  clearSettingsCache,
   formatPercent
 } from '../utils/profitPricingLogic';
 
 // Category configuration with icons and colors
 const CATEGORIES = {
-  pricing: {
-    label: 'Base Pricing',
-    icon: DollarSign,
+  labor: {
+    label: 'Labor Costs',
+    icon: Users,
+    color: 'blue',
+    description: 'Cleaner pay rates and payroll burden'
+  },
+  supplies: {
+    label: 'Supplies & Gas',
+    icon: Fuel,
     color: 'green',
-    description: 'Core pricing rates and minimums'
+    description: 'Weekly costs per cleaner'
+  },
+  equipment: {
+    label: 'Equipment',
+    icon: Wrench,
+    color: 'orange',
+    description: 'Equipment amortization'
+  },
+  overhead: {
+    label: 'Monthly Overhead',
+    icon: Building2,
+    color: 'purple',
+    description: 'Fixed monthly business costs'
+  },
+  pricing: {
+    label: 'Pricing Rules',
+    icon: DollarSign,
+    color: 'sage',
+    description: 'Margin targets and minimums'
   },
   duration: {
     label: 'Time Estimates',
     icon: Clock,
-    color: 'blue',
+    color: 'cyan',
     description: 'Duration calculation settings'
   },
   discounts: {
-    label: 'Discounts & Referrals',
+    label: 'Frequency Discounts',
     icon: Percent,
-    color: 'purple',
-    description: 'Frequency discounts and referral program'
+    color: 'pink',
+    description: 'Recurring service discounts'
   },
   fees: {
-    label: 'Fees & Deposits',
+    label: 'Fees & Business',
     icon: Calculator,
     color: 'yellow',
-    description: 'Deposit and cancellation fees'
-  },
-  business: {
-    label: 'Business Rules',
-    icon: TrendingUp,
-    color: 'sage',
-    description: 'Booking windows and capacity'
+    description: 'Deposits, cancellations, booking rules'
   }
 };
 
+// Settings grouped by new categories
+const SETTINGS_BY_CATEGORY = {
+  labor: [
+    { key: 'base_hourly_rate', label: 'Base Hourly Rate', description: 'Pay per hour before taxes ($)', type: 'currency' },
+    { key: 'payroll_burden_percent', label: 'Payroll Burden', description: 'IL taxes + workers comp (decimal)', type: 'percent' },
+    { key: 'loaded_hourly_rate', label: 'Loaded Hourly Rate', description: 'Effective cost including burden ($)', type: 'currency' },
+    { key: 'solo_cleaner_max_sqft', label: 'Solo Cleaner Max Sqft', description: '2 cleaners sent above this size', type: 'number' },
+  ],
+  supplies: [
+    { key: 'weekly_supplies_cost', label: 'Weekly Supplies', description: 'Branch Basics per cleaner per week ($)', type: 'currency' },
+    { key: 'weekly_gas_cost', label: 'Weekly Gas', description: 'Gas allowance per cleaner per week ($)', type: 'currency' },
+    { key: 'expected_jobs_per_week', label: 'Jobs Per Week', description: 'Expected jobs per cleaner per week', type: 'number' },
+  ],
+  equipment: [
+    { key: 'annual_equipment_cost', label: 'Annual Equipment Cost', description: 'SEBO + maintenance + microfiber per year ($)', type: 'currency' },
+    { key: 'expected_jobs_per_year', label: 'Jobs Per Year', description: 'Expected jobs per cleaner per year', type: 'number' },
+  ],
+  overhead: [
+    { key: 'monthly_marketing', label: 'Marketing', description: 'Monthly marketing budget ($)', type: 'currency' },
+    { key: 'monthly_admin', label: 'Admin', description: 'Monthly admin costs ($)', type: 'currency' },
+    { key: 'monthly_phone', label: 'Phone', description: 'Monthly phone costs ($)', type: 'currency' },
+    { key: 'monthly_website', label: 'Website', description: 'Monthly website costs ($)', type: 'currency' },
+    { key: 'monthly_insurance', label: 'Insurance', description: 'Monthly insurance costs ($)', type: 'currency' },
+    { key: 'monthly_overhead_total', label: 'Total Overhead', description: 'Total monthly fixed costs ($)', type: 'currency', readonly: true },
+  ],
+  pricing: [
+    { key: 'target_margin_percent', label: 'Target Margin', description: 'Target profit margin (0.45 = 45%)', type: 'percent' },
+    { key: 'minimum_price', label: 'Minimum Price', description: 'Never quote below this ($)', type: 'currency' },
+    { key: 'first_clean_hours_multiplier', label: 'First Clean Multiplier', description: 'Hours multiplier for deep clean (1.5 = 50% longer)', type: 'multiplier' },
+  ],
+  duration: [
+    { key: 'base_minutes_per_500_sqft', label: 'Minutes per 500 sqft', description: 'Base cleaning time per 500 sqft', type: 'number' },
+    { key: 'extra_bathroom_minutes', label: 'Extra Bathroom Minutes', description: 'Additional time per bathroom over 2', type: 'number' },
+    { key: 'extra_bedroom_minutes', label: 'Extra Bedroom Minutes', description: 'Additional time per bedroom over 3', type: 'number' },
+    { key: 'included_bathrooms', label: 'Included Bathrooms', description: 'Bathrooms included in base time', type: 'number' },
+    { key: 'included_bedrooms', label: 'Included Bedrooms', description: 'Bedrooms included in base time', type: 'number' },
+  ],
+  discounts: [
+    { key: 'weekly_discount', label: 'Weekly Discount', description: 'Discount for weekly service (0.15 = 15%)', type: 'percent' },
+    { key: 'biweekly_discount', label: 'Bi-Weekly Discount', description: 'Discount for bi-weekly service', type: 'percent' },
+    { key: 'monthly_discount', label: 'Monthly Discount', description: 'Discount for monthly service', type: 'percent' },
+    { key: 'referral_bonus', label: 'Referral Bonus', description: 'Credit for referrer ($)', type: 'currency' },
+    { key: 'referred_discount', label: 'Referred Discount', description: 'Discount for new referred customer ($)', type: 'currency' },
+  ],
+  fees: [
+    { key: 'deposit_percentage', label: 'Deposit Percentage', description: 'Deposit required (0.20 = 20%)', type: 'percent' },
+    { key: 'cancellation_24_48h', label: 'Late Cancel Fee (24-48h)', description: 'Cancellation fee ($)', type: 'currency' },
+    { key: 'booking_lead_days', label: 'Booking Lead Days', description: 'Minimum days in advance to book', type: 'number' },
+    { key: 'booking_max_days', label: 'Booking Max Days', description: 'Maximum days in advance to book', type: 'number' },
+  ],
+};
+
 const Pricing = () => {
-  const [settings, setSettings] = useState([]);
+  const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [editedValues, setEditedValues] = useState({});
-  const [expandedCategories, setExpandedCategories] = useState(['pricing', 'discounts']);
-  const [showCalculator, setShowCalculator] = useState(true);
+  const [expandedCategories, setExpandedCategories] = useState(['labor', 'pricing', 'overhead']);
+  const [costSettings, setCostSettings] = useState(null);
   
   // Calculator state
   const [calcParams, setCalcParams] = useState({
@@ -96,7 +169,22 @@ const Pricing = () => {
         .order('sort_order');
 
       if (fetchError) throw fetchError;
-      setSettings(data || []);
+      
+      // Convert to object
+      const settingsObj = {};
+      (data || []).forEach(row => {
+        let value = row.value;
+        if (typeof value === 'string' && !isNaN(value)) {
+          value = parseFloat(value);
+        }
+        settingsObj[row.key] = value;
+      });
+      setSettings(settingsObj);
+      
+      // Refresh cost settings cache
+      clearSettingsCache();
+      const fresh = await fetchCostSettings(true);
+      setCostSettings(fresh);
     } catch (err) {
       console.error('Error fetching settings:', err);
       setError('Failed to load pricing settings');
@@ -112,20 +200,11 @@ const Pricing = () => {
     }));
   };
 
-  const getDisplayValue = (setting) => {
-    if (editedValues.hasOwnProperty(setting.key)) {
-      return editedValues[setting.key];
+  const getDisplayValue = (key) => {
+    if (editedValues.hasOwnProperty(key)) {
+      return editedValues[key];
     }
-    // Parse JSONB value
-    let val = setting.value;
-    if (typeof val === 'string') {
-      try {
-        val = JSON.parse(val);
-      } catch (e) {
-        // Keep as string
-      }
-    }
-    return val;
+    return settings[key] ?? '';
   };
 
   const handleSave = async () => {
@@ -136,12 +215,31 @@ const Pricing = () => {
     setSuccess(null);
 
     try {
+      // Calculate overhead total if any overhead value changed
+      const overheadKeys = ['monthly_marketing', 'monthly_admin', 'monthly_phone', 'monthly_website', 'monthly_insurance'];
+      const hasOverheadChange = overheadKeys.some(k => editedValues.hasOwnProperty(k));
+      
+      let updates = { ...editedValues };
+      
+      if (hasOverheadChange) {
+        const getVal = (k) => parseFloat(editedValues[k] ?? settings[k]) || 0;
+        const newOverheadTotal = getVal('monthly_marketing') + getVal('monthly_admin') + 
+                                  getVal('monthly_phone') + getVal('monthly_website') + 
+                                  getVal('monthly_insurance');
+        updates['monthly_overhead_total'] = newOverheadTotal;
+      }
+
       // Update each changed setting
-      for (const [key, value] of Object.entries(editedValues)) {
+      for (const [key, value] of Object.entries(updates)) {
+        let parsedValue = value;
+        if (typeof value === 'string' && value !== 'full' && !isNaN(value)) {
+          parsedValue = parseFloat(value);
+        }
+        
         const { error: updateError } = await supabase
           .from('pricing_settings')
           .update({ 
-            value: typeof value === 'string' && value !== 'full' ? parseFloat(value) || value : value,
+            value: parsedValue,
             updated_at: new Date().toISOString()
           })
           .eq('key', key);
@@ -156,16 +254,18 @@ const Pricing = () => {
         action: 'updated',
         actor_type: 'admin',
         details: { 
-          updated_keys: Object.keys(editedValues),
-          changes: editedValues
+          updated_keys: Object.keys(updates),
+          changes: updates
         }
-      });
+      }).catch(() => {}); // Don't fail if activity log fails
 
-      setSuccess('Pricing settings saved successfully!');
+      setSuccess('Pricing settings saved! Changes are now live.');
       setEditedValues({});
-      fetchSettings();
       
-      setTimeout(() => setSuccess(null), 3000);
+      // Refresh everything
+      await fetchSettings();
+      
+      setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
       console.error('Error saving settings:', err);
       setError('Failed to save settings. Please try again.');
@@ -182,33 +282,58 @@ const Pricing = () => {
     );
   };
 
-  // Group settings by category
-  const settingsByCategory = settings.reduce((acc, setting) => {
-    if (!acc[setting.category]) acc[setting.category] = [];
-    acc[setting.category].push(setting);
-    return acc;
-  }, {});
-
-  // Calculate preview price using profit-based logic
+  // Calculate preview price using current/edited values
   const calculatePreview = () => {
-    const pricing = calculateProfitablePricing({
-      sqft: calcParams.sqft,
-      bedrooms: calcParams.bedrooms,
-      bathrooms: calcParams.bathrooms,
-      frequency: calcParams.frequency,
+    if (!costSettings) return null;
+    
+    // Merge edited values into cost settings for preview
+    const previewSettings = { ...costSettings };
+    
+    // Apply any edited values
+    Object.entries(editedValues).forEach(([key, value]) => {
+      const camelKey = key.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+      if (previewSettings.hasOwnProperty(camelKey)) {
+        previewSettings[camelKey] = parseFloat(value) || value;
+      }
+      // Handle frequency discounts
+      if (key === 'weekly_discount') previewSettings.frequencyDiscounts.weekly = parseFloat(value) || 0;
+      if (key === 'biweekly_discount') previewSettings.frequencyDiscounts.biweekly = parseFloat(value) || 0;
+      if (key === 'monthly_discount') previewSettings.frequencyDiscounts.monthly = parseFloat(value) || 0;
     });
     
-    return {
-      ...pricing,
-      basePrice: pricing.recurring.basePrice,
-      firstCleanPrice: pricing.firstCleanPrice,
-      recurringPrice: pricing.recurringPrice,
-      discount: pricing.recurring.frequencyDiscount / 100,
-    };
+    // Recalculate derived values
+    const weeklyTotal = (parseFloat(editedValues.weekly_supplies_cost ?? settings.weekly_supplies_cost) || 24.5) +
+                        (parseFloat(editedValues.weekly_gas_cost ?? settings.weekly_gas_cost) || 50);
+    const jobsPerWeek = parseFloat(editedValues.expected_jobs_per_week ?? settings.expected_jobs_per_week) || 9;
+    previewSettings.perJobSuppliesGas = weeklyTotal / jobsPerWeek;
+    
+    const annualEquip = parseFloat(editedValues.annual_equipment_cost ?? settings.annual_equipment_cost) || 750;
+    const jobsPerYear = parseFloat(editedValues.expected_jobs_per_year ?? settings.expected_jobs_per_year) || 450;
+    previewSettings.perJobEquipment = annualEquip / jobsPerYear;
+    
+    // Recalculate overhead total
+    const overheadTotal = (parseFloat(editedValues.monthly_marketing ?? settings.monthly_marketing) || 250) +
+                          (parseFloat(editedValues.monthly_admin ?? settings.monthly_admin) || 250) +
+                          (parseFloat(editedValues.monthly_phone ?? settings.monthly_phone) || 20) +
+                          (parseFloat(editedValues.monthly_website ?? settings.monthly_website) || 5) +
+                          (parseFloat(editedValues.monthly_insurance ?? settings.monthly_insurance) || 75);
+    previewSettings.monthlyOverheadTotal = overheadTotal;
+    
+    try {
+      return calculateProfitablePricing({
+        sqft: calcParams.sqft,
+        bedrooms: calcParams.bedrooms,
+        bathrooms: calcParams.bathrooms,
+        frequency: calcParams.frequency,
+        settings: previewSettings,
+      });
+    } catch (e) {
+      console.error('Preview calculation error:', e);
+      return null;
+    }
   };
 
   const preview = calculatePreview();
-  const costSettings = getCostSettings();
   const hasChanges = Object.keys(editedValues).length > 0;
 
   if (loading) {
@@ -228,15 +353,16 @@ const Pricing = () => {
             Pricing Engine
           </h1>
           <p className="text-charcoal/60 font-inter mt-1">
-            Configure quote pricing, discounts, and business rules
+            Configure costs, margins, and pricing rules — changes go live immediately
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchSettings}
             className="btn-secondary flex items-center gap-2"
+            disabled={loading}
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
           <button
@@ -249,7 +375,7 @@ const Pricing = () => {
             ) : (
               <Save className="w-4 h-4" />
             )}
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? 'Saving...' : 'Save & Go Live'}
           </button>
         </div>
       </div>
@@ -267,50 +393,30 @@ const Pricing = () => {
           {success}
         </div>
       )}
+      {hasChanges && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-xl flex items-center gap-2">
+          <Zap className="w-5 h-5" />
+          You have unsaved changes. Click "Save & Go Live" to apply them to the pricing calculator.
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Settings Panel */}
         <div className="lg:col-span-2 space-y-4">
-          {/* How Profit-Based Pricing Works */}
+          {/* How Pricing Works */}
           <div className="bg-gradient-to-br from-sage/10 to-sage/5 rounded-2xl border border-sage/20 p-6">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 bg-sage rounded-xl flex items-center justify-center flex-shrink-0">
                 <Lightbulb className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="font-inter font-semibold text-charcoal mb-2">Profit-Based Pricing Model</h3>
-                <div className="text-sm text-charcoal/70 space-y-3 font-inter">
-                  <p>
-                    <strong>Price = Total Cost ÷ (1 - Target Margin)</strong><br />
-                    Every quote is calculated from actual costs to guarantee profitability.
+                <h3 className="font-inter font-semibold text-charcoal mb-2">Profit-Based Pricing Formula</h3>
+                <div className="text-sm text-charcoal/70 font-inter">
+                  <p className="font-mono bg-white/50 rounded px-2 py-1 inline-block mb-2">
+                    Price = Total Cost ÷ (1 - Target Margin)
                   </p>
-                  <div className="bg-white/50 rounded-lg p-3 mt-3">
-                    <p className="font-medium text-charcoal mb-2">📊 Your Cost Components:</p>
-                    <ul className="text-xs space-y-1.5 text-charcoal/60">
-                      <li className="flex items-center gap-2">
-                        <Users className="w-3 h-3 text-sage" />
-                        <strong>Labor:</strong> ${costSettings.loadedHourlyRate}/hr loaded (${costSettings.baseHourlyRate}/hr + {(costSettings.payrollBurdenPercent * 100).toFixed(1)}% burden)
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Package className="w-3 h-3 text-sage" />
-                        <strong>Supplies & Gas:</strong> ${costSettings.perJobSuppliesGas.toFixed(2)}/job per cleaner
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Truck className="w-3 h-3 text-sage" />
-                        <strong>Equipment:</strong> ${costSettings.perJobEquipment.toFixed(2)}/job per cleaner (amortized)
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Building2 className="w-3 h-3 text-sage" />
-                        <strong>Overhead:</strong> ${costSettings.monthlyOverheadTotal}/mo ÷ jobs = variable per job
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <TrendingUp className="w-3 h-3 text-green-600" />
-                        <strong>Target Margin:</strong> {(costSettings.targetMarginPercent * 100).toFixed(0)}% | Min Price: ${costSettings.minimumPrice}
-                      </li>
-                    </ul>
-                  </div>
-                  <p className="text-xs text-charcoal/50 mt-2">
-                    Team size: 1 cleaner for &lt;2,000 sqft, 2 cleaners for ≥2,000 sqft
+                  <p className="text-xs mt-2">
+                    Every quote is calculated from your actual costs below. Adjust any value and see the live preview update.
                   </p>
                 </div>
               </div>
@@ -319,9 +425,11 @@ const Pricing = () => {
 
           {/* Settings Categories */}
           {Object.entries(CATEGORIES).map(([categoryKey, category]) => {
-            const categorySettings = settingsByCategory[categoryKey] || [];
+            const categorySettings = SETTINGS_BY_CATEGORY[categoryKey] || [];
             const isExpanded = expandedCategories.includes(categoryKey);
             const Icon = category.icon;
+
+            if (categorySettings.length === 0) return null;
 
             return (
               <div 
@@ -348,7 +456,7 @@ const Pricing = () => {
                   )}
                 </button>
 
-                {isExpanded && categorySettings.length > 0 && (
+                {isExpanded && (
                   <div className="border-t border-charcoal/10 p-4 space-y-4">
                     {categorySettings.map(setting => (
                       <div key={setting.key} className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -359,44 +467,28 @@ const Pricing = () => {
                           <p className="text-xs text-charcoal/50">{setting.description}</p>
                         </div>
                         <div className="sm:w-40">
-                          {setting.key === 'cancellation_under_24h' ? (
-                            <select
-                              value={getDisplayValue(setting)}
+                          <div className="relative">
+                            {setting.type === 'currency' && (
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal/40">$</span>
+                            )}
+                            {(setting.type === 'percent' || setting.type === 'multiplier') && (
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-charcoal/40 text-xs">
+                                {setting.type === 'multiplier' ? '×' : ''}
+                              </span>
+                            )}
+                            <input
+                              type="number"
+                              step={setting.type === 'percent' || setting.type === 'multiplier' ? '0.01' : '1'}
+                              value={getDisplayValue(setting.key)}
                               onChange={(e) => handleValueChange(setting.key, e.target.value)}
-                              className="w-full px-3 py-2 bg-bone border border-charcoal/10 rounded-lg
-                                         font-inter text-sm focus:outline-none focus:ring-2 focus:ring-sage"
-                            >
-                              <option value="full">Full Charge</option>
-                              <option value="50">50% of Job Price</option>
-                              <option value="0">No Fee</option>
-                            </select>
-                          ) : (
-                            <div className="relative">
-                              {(setting.key.includes('price') || setting.key.includes('rate') || 
-                                setting.key.includes('bonus') || setting.key.includes('discount_amount') ||
-                                setting.key === 'cancellation_24_48h') && (
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal/40">$</span>
-                              )}
-                              {(setting.key.includes('discount') || setting.key.includes('percentage') ||
-                                setting.key.includes('multiplier')) && !setting.key.includes('bonus') && (
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-charcoal/40 text-xs">
-                                  {setting.key.includes('multiplier') ? '×' : '%'}
-                                </span>
-                              )}
-                              <input
-                                type="number"
-                                step={setting.key.includes('discount') || setting.key.includes('multiplier') || setting.key.includes('percentage') ? '0.01' : '1'}
-                                value={getDisplayValue(setting)}
-                                onChange={(e) => handleValueChange(setting.key, e.target.value)}
-                                className={`w-full px-3 py-2 bg-bone border border-charcoal/10 rounded-lg
-                                           font-inter text-sm focus:outline-none focus:ring-2 focus:ring-sage
-                                           ${setting.key.includes('price') || setting.key.includes('rate') || 
-                                             setting.key.includes('bonus') || setting.key === 'cancellation_24_48h' ? 'pl-7' : ''}
-                                           ${setting.key.includes('discount') || setting.key.includes('multiplier') || 
-                                             setting.key.includes('percentage') ? 'pr-8' : ''}`}
-                              />
-                            </div>
-                          )}
+                              disabled={setting.readonly}
+                              className={`w-full px-3 py-2 bg-bone border border-charcoal/10 rounded-lg
+                                         font-inter text-sm focus:outline-none focus:ring-2 focus:ring-sage
+                                         ${setting.type === 'currency' ? 'pl-7' : ''}
+                                         ${setting.readonly ? 'opacity-60 cursor-not-allowed' : ''}
+                                         ${editedValues.hasOwnProperty(setting.key) ? 'ring-2 ring-yellow-400' : ''}`}
+                            />
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -413,8 +505,13 @@ const Pricing = () => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-inter font-semibold text-charcoal flex items-center gap-2">
                 <Calculator className="w-5 h-5 text-sage" />
-                Price Preview
+                Live Preview
               </h3>
+              {hasChanges && (
+                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">
+                  Preview Mode
+                </span>
+              )}
             </div>
 
             {/* Calculator Inputs */}
@@ -469,114 +566,83 @@ const Pricing = () => {
             </div>
 
             {/* Results */}
-            <div className="space-y-3 border-t border-charcoal/10 pt-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-charcoal/60">Base Price</span>
-                <span className="font-inter font-medium text-charcoal">{formatPrice(preview.basePrice)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-charcoal/60">First Clean</span>
-                <span className="font-inter font-semibold text-charcoal">{formatPrice(preview.firstCleanPrice)}</span>
-              </div>
-              {preview.discount > 0 && (
-                <div className="flex justify-between items-center text-sage">
-                  <span className="text-sm">Frequency Discount</span>
-                  <span className="font-inter font-medium">-{Math.round(preview.discount * 100)}%</span>
-                </div>
-              )}
-              <div className="flex justify-between items-center pt-3 border-t border-charcoal/10">
-                <span className="text-sm font-medium text-charcoal">Recurring Price</span>
-                <span className="font-inter font-bold text-sage text-lg">{formatPrice(preview.recurringPrice)}</span>
-              </div>
-            </div>
-
-            {/* Real Cost Breakdown */}
-            <div className="mt-4 bg-sage/5 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <PieChart className="w-4 h-4 text-sage" />
-                <h4 className="text-sm font-semibold text-charcoal">Real Cost Breakdown</h4>
-              </div>
-              
-              {/* First Clean Breakdown */}
-              <div className="mb-4">
-                <p className="text-xs font-medium text-charcoal/70 mb-2">First Clean ({preview.cleanerCount} cleaner{preview.cleanerCount > 1 ? 's' : ''})</p>
-                <div className="space-y-1 text-xs text-charcoal/60">
-                  <div className="flex justify-between">
-                    <span>Labor ({(preview.firstClean?.durationHours || 0).toFixed(1)}h × ${costSettings.loadedHourlyRate} × {preview.cleanerCount})</span>
-                    <span className="text-red-600">-{formatPrice(preview.firstClean?.laborCost || 0)}</span>
+            {preview && (
+              <>
+                <div className="space-y-3 border-t border-charcoal/10 pt-4">
+                  <div className="text-center mb-4">
+                    <span className="text-xs bg-charcoal/10 text-charcoal px-2 py-1 rounded-full">
+                      {preview.cleanerCount} cleaner{preview.cleanerCount > 1 ? 's' : ''} assigned
+                    </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Supplies & Gas</span>
-                    <span className="text-red-600">-{formatPrice(preview.firstClean?.suppliesGasCost || 0)}</span>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-charcoal/60">First Clean</span>
+                    <span className="font-inter font-bold text-sage text-xl">{formatPrice(preview.firstCleanPrice)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Equipment</span>
-                    <span className="text-red-600">-{formatPrice(preview.firstClean?.equipmentCost || 0)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Overhead</span>
-                    <span className="text-red-600">-{formatPrice(preview.firstClean?.overheadCost || 0)}</span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-sage/20 font-medium">
-                    <span className="text-charcoal">Total Cost</span>
-                    <span className="text-charcoal">{formatPrice(preview.firstClean?.totalCost || 0)}</span>
-                  </div>
-                  <div className="flex justify-between font-medium">
-                    <span className="text-charcoal">Quote Price</span>
-                    <span className="text-charcoal">{formatPrice(preview.firstCleanPrice)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold pt-1">
-                    <span className="text-green-700">Profit ({preview.firstClean?.margin || 0}% margin)</span>
-                    <span className="text-green-600">{formatPrice(preview.firstClean?.profit || 0)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recurring Breakdown */}
-              {calcParams.frequency !== 'onetime' && (
-                <div className="pt-3 border-t border-charcoal/10">
-                  <p className="text-xs font-medium text-charcoal/70 mb-2">Recurring Clean</p>
-                  <div className="space-y-1 text-xs text-charcoal/60">
-                    <div className="flex justify-between">
-                      <span>Labor ({(preview.recurring?.durationHours || 0).toFixed(1)}h × ${costSettings.loadedHourlyRate} × {preview.cleanerCount})</span>
-                      <span className="text-red-600">-{formatPrice(preview.recurring?.laborCost || 0)}</span>
+                  {calcParams.frequency !== 'onetime' && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-charcoal/60">Recurring ({preview.recurring.frequencyDiscount}% off)</span>
+                      <span className="font-inter font-semibold text-charcoal">{formatPrice(preview.recurringPrice)}</span>
                     </div>
-                    <div className="flex justify-between">
+                  )}
+                </div>
+
+                {/* Cost Breakdown */}
+                <div className="mt-4 bg-sage/5 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <PieChart className="w-4 h-4 text-sage" />
+                    <h4 className="text-sm font-semibold text-charcoal">Cost Breakdown (First Clean)</h4>
+                  </div>
+                  
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between text-charcoal/60">
+                      <span>Labor ({preview.firstClean?.durationHours?.toFixed(1)}h × ${costSettings?.loadedHourlyRate} × {preview.cleanerCount})</span>
+                      <span className="text-red-600">-{formatPrice(preview.firstClean?.laborCost)}</span>
+                    </div>
+                    <div className="flex justify-between text-charcoal/60">
                       <span>Supplies & Gas</span>
-                      <span className="text-red-600">-{formatPrice(preview.recurring?.suppliesGasCost || 0)}</span>
+                      <span className="text-red-600">-{formatPrice(preview.firstClean?.suppliesGasCost)}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-charcoal/60">
                       <span>Equipment</span>
-                      <span className="text-red-600">-{formatPrice(preview.recurring?.equipmentCost || 0)}</span>
+                      <span className="text-red-600">-{formatPrice(preview.firstClean?.equipmentCost)}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-charcoal/60">
                       <span>Overhead</span>
-                      <span className="text-red-600">-{formatPrice(preview.recurring?.overheadCost || 0)}</span>
+                      <span className="text-red-600">-{formatPrice(preview.firstClean?.overheadCost)}</span>
                     </div>
-                    <div className="flex justify-between pt-2 border-t border-sage/20 font-medium">
-                      <span className="text-charcoal">Total Cost</span>
-                      <span className="text-charcoal">{formatPrice(preview.recurring?.totalCost || 0)}</span>
+                    <div className="flex justify-between pt-2 border-t border-sage/20 font-medium text-charcoal">
+                      <span>Total Cost</span>
+                      <span>{formatPrice(preview.firstClean?.totalCost)}</span>
                     </div>
-                    <div className="flex justify-between font-medium">
-                      <span className="text-charcoal">Quote Price (after {preview.recurring?.frequencyDiscount || 0}% discount)</span>
-                      <span className="text-charcoal">{formatPrice(preview.recurringPrice)}</span>
-                    </div>
-                    <div className="flex justify-between font-bold pt-1">
-                      <span className="text-green-700">Profit ({preview.recurring?.margin || 0}% margin)</span>
-                      <span className="text-green-600">{formatPrice(preview.recurring?.profit || 0)}</span>
+                    <div className="flex justify-between font-bold text-green-700">
+                      <span>Profit ({preview.firstClean?.margin}% margin)</span>
+                      <span className="text-green-600">{formatPrice(preview.firstClean?.profit)}</span>
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
 
-            {hasChanges && (
-              <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-3">
-                <p className="text-xs text-yellow-700 flex items-center gap-1">
-                  <Info className="w-4 h-4" />
-                  Preview updates as you change settings. Save to apply.
-                </p>
-              </div>
+                {/* Recurring Breakdown */}
+                {calcParams.frequency !== 'onetime' && (
+                  <div className="mt-3 bg-charcoal/5 rounded-xl p-4">
+                    <h4 className="text-xs font-semibold text-charcoal mb-2">Recurring Clean</h4>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between text-charcoal/60">
+                        <span>Cost</span>
+                        <span>{formatPrice(preview.recurring?.totalCost)}</span>
+                      </div>
+                      <div className="flex justify-between text-charcoal/60">
+                        <span>Price</span>
+                        <span>{formatPrice(preview.recurringPrice)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-green-700">
+                        <span>Profit ({preview.recurring?.margin}%)</span>
+                        <span>{formatPrice(preview.recurring?.profit)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
