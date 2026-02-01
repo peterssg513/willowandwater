@@ -5,7 +5,13 @@ import {
   LogOut, 
   Menu, 
   X,
-  Loader2
+  Loader2,
+  UserPlus,
+  CalendarDays,
+  Calendar,
+  Users,
+  Package,
+  MessageSquare
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -55,9 +61,15 @@ const AdminLayout = () => {
     navigate('/admin/login');
   };
 
-  // Navigation items - just Dashboard for now
+  // Navigation items
   const navItems = [
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+    { name: 'Leads', href: '/admin/leads', icon: UserPlus },
+    { name: 'Bookings', href: '/admin/bookings', icon: CalendarDays },
+    { name: 'Schedule', href: '/admin/schedule', icon: Calendar },
+    { name: 'Customers', href: '/admin/customers', icon: Users },
+    { name: 'Inventory', href: '/admin/inventory', icon: Package },
+    { name: 'Messages', href: '/admin/messages', icon: MessageSquare },
   ];
 
   if (loading) {
@@ -100,7 +112,7 @@ const AdminLayout = () => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = location.pathname === item.href || 
               (item.href !== '/admin' && location.pathname.startsWith(item.href));
@@ -164,8 +176,6 @@ const AdminLayout = () => {
           </button>
 
           <div className="flex-1" />
-
-          {/* Could add notifications, search, etc. here later */}
         </header>
 
         {/* Page Content */}

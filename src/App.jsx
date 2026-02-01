@@ -23,6 +23,12 @@ import AbandonedBookingRecovery from './components/AbandonedBookingRecovery';
 import AdminLogin from './admin/AdminLogin';
 import AdminLayout from './admin/AdminLayout';
 import Dashboard from './admin/Dashboard';
+import Leads from './admin/Leads';
+import Bookings from './admin/Bookings';
+import Schedule from './admin/Schedule';
+import Customers from './admin/Customers';
+import Inventory from './admin/Inventory';
+import Messages from './admin/Messages';
 
 // Service area data
 import { SERVICE_AREA_LIST, getPrimaryServiceAreas, getServiceAreasByTier } from './data/serviceAreas';
@@ -218,6 +224,12 @@ function App() {
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Dashboard />} />
+        <Route path="leads" element={<Leads />} />
+        <Route path="bookings" element={<Bookings />} />
+        <Route path="schedule" element={<Schedule />} />
+        <Route path="customers" element={<Customers />} />
+        <Route path="inventory" element={<Inventory />} />
+        <Route path="messages" element={<Messages />} />
       </Route>
       
       {/* Fallback to home for unknown routes */}
