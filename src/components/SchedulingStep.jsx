@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Calendar, ExternalLink, Clock, CheckCircle } from 'lucide-react';
 
 const SchedulingStep = ({ bookingData, onBack, onScheduled }) => {
-  const [bookingConfirmed, setBookingConfirmed] = useState(false);
+  const [step, setStep] = useState('calendar'); // 'calendar' | 'confirm'
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
   const [capturedBooking, setCapturedBooking] = useState(null);
   const iframeRef = useRef(null);
   
@@ -18,28 +20,23 @@ Address: ${bookingData.contact?.address || 'Not provided'}
 Quote: $${bookingData.quote?.recurringPrice}/visit
   `.trim());
 
-  // Add embed=true for better event support
   const calUrl = `https://cal.com/${calLink}?name=${guestName}&email=${guestEmail}&notes=${notes}&theme=light&embed=true`;
 
-  // Listen for Cal.com booking events via postMessage
+  // Listen for Cal.com booking events via postMessage (as backup)
   useEffect(() => {
     const handleCalMessage = (event) => {
-      // Accept messages from Cal.com
       if (!event.origin.includes('cal.com')) return;
       
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        
         console.log('Cal.com message received:', data);
         
         // Check for booking confirmation events
-        // Cal.com sends various event types depending on version
         if (data.type === 'CAL:bookingSuccessful' || 
             data.type === 'bookingSuccessful' ||
             data.action === 'bookingSuccessful' ||
             (data.type === '__routeChanged' && data.data?.includes('/booking/'))) {
           
-          // Extract booking details
           const bookingInfo = data.data || data;
           
           if (bookingInfo.startTime) {
@@ -51,24 +48,20 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
               hour12: true
             });
             
-            console.log('Booking captured from Cal.com:', dateStr, timeStr);
-            
+            console.log('Auto-captured from Cal.com:', dateStr, timeStr);
+            setSelectedDate(dateStr);
+            setSelectedTime(timeStr);
             setCapturedBooking({
               date: dateStr,
               time: timeStr,
               bookingId: bookingInfo.uid || bookingInfo.id || 'cal-booking',
+              autoCapture: true,
             });
-            setBookingConfirmed(true);
-          } else {
-            // If no startTime but booking was successful, mark as confirmed
-            // and we'll capture the date from the confirmation email
-            console.log('Booking confirmed but no startTime in event');
-            setBookingConfirmed(true);
+            setStep('confirm');
           }
         }
       } catch (e) {
-        // Not a JSON message or parse error, ignore
-        console.log('Cal.com message parse error:', e);
+        // Not a JSON message, ignore
       }
     };
 
@@ -76,10 +69,17 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
     return () => window.removeEventListener('message', handleCalMessage);
   }, []);
 
-  // Format captured date for display
-  const formatCapturedDate = () => {
-    if (!capturedBooking?.date) return '';
-    const date = new Date(capturedBooking.date + 'T12:00:00');
+  // Time options for dropdown
+  const timeOptions = [
+    '8:00 AM', '8:30 AM', '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM',
+    '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM', '1:00 PM', '1:30 PM',
+    '2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM', '5:00 PM'
+  ];
+
+  // Format date for display
+  const formatDateForDisplay = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T12:00:00');
     return date.toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
@@ -88,14 +88,26 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
     });
   };
 
-  const handleContinue = () => {
+  const handleConfirmBooking = () => {
+    setStep('confirm');
+  };
+
+  const handleContinueToPayment = () => {
+    if (!selectedDate || !selectedTime) {
+      alert('Please enter the date and time you selected on Cal.com');
+      return;
+    }
+
     onScheduled({
-      scheduledDate: capturedBooking?.date || new Date().toISOString().split('T')[0],
-      scheduledTime: capturedBooking?.time || 'Scheduled via Cal.com',
+      scheduledDate: selectedDate,
+      scheduledTime: selectedTime,
       calBookingId: capturedBooking?.bookingId || 'cal-booking',
       calBookingUrl: `https://cal.com/${calLink}`,
     });
   };
+
+  // Get minimum date (today)
+  const today = new Date().toISOString().split('T')[0];
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -106,61 +118,106 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
           <span className="font-inter text-xs font-medium">Step 3 of 4</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-playfair font-semibold text-charcoal mb-2">
-          {bookingConfirmed ? 'Appointment Scheduled!' : 'Choose Your Cleaning Date'}
+          {step === 'confirm' ? 'Confirm Your Appointment' : 'Choose Your Cleaning Date'}
         </h2>
         <p className="text-charcoal/60 font-inter">
-          {bookingConfirmed 
-            ? 'Your time slot has been reserved' 
+          {step === 'confirm' 
+            ? 'Enter the date and time you selected' 
             : 'Select an available time slot that works best for you'}
         </p>
       </div>
 
-      {/* Show confirmation if booking was captured */}
-      {bookingConfirmed ? (
+      {step === 'confirm' ? (
+        /* Date/Time Confirmation Form */
         <div className="max-w-md mx-auto">
-          <div className="bg-white rounded-2xl shadow-lg shadow-charcoal/5 p-6 text-center">
+          <div className="bg-white rounded-2xl shadow-lg shadow-charcoal/5 p-6">
             <div className="w-16 h-16 bg-sage/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-8 h-8 text-sage" />
             </div>
             
-            <h3 className="font-playfair text-xl font-semibold text-charcoal mb-2">
-              Time Confirmed
+            <h3 className="font-playfair text-xl font-semibold text-charcoal mb-2 text-center">
+              {capturedBooking?.autoCapture ? 'Appointment Details' : 'Enter Your Appointment Time'}
             </h3>
             
-            {capturedBooking?.date && (
-              <div className="bg-bone/50 rounded-xl p-4 mb-6">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Calendar className="w-5 h-5 text-sage" />
-                  <span className="font-inter font-medium text-charcoal">
-                    {formatCapturedDate()}
-                  </span>
-                </div>
-                {capturedBooking?.time && (
-                  <div className="flex items-center justify-center gap-2">
-                    <Clock className="w-5 h-5 text-sage" />
-                    <span className="font-inter font-medium text-charcoal">
-                      {capturedBooking.time}
-                    </span>
-                  </div>
+            <p className="text-charcoal/60 font-inter text-sm text-center mb-6">
+              {capturedBooking?.autoCapture 
+                ? 'We detected your booking. Please verify the details below.'
+                : 'Please enter the date and time you selected on Cal.com'}
+            </p>
+
+            <div className="space-y-4">
+              {/* Date Input */}
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-1.5">
+                  <Calendar className="w-4 h-4 inline mr-1" />
+                  Appointment Date
+                </label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  min={today}
+                  className="w-full px-4 py-3 border border-charcoal/20 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage"
+                />
+                {selectedDate && (
+                  <p className="mt-1 text-sm text-sage font-inter">
+                    {formatDateForDisplay(selectedDate)}
+                  </p>
                 )}
+              </div>
+
+              {/* Time Input */}
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-1.5">
+                  <Clock className="w-4 h-4 inline mr-1" />
+                  Appointment Time
+                </label>
+                <select
+                  value={selectedTime}
+                  onChange={(e) => setSelectedTime(e.target.value)}
+                  className="w-full px-4 py-3 border border-charcoal/20 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage
+                           bg-white"
+                >
+                  <option value="">Select a time...</option>
+                  {timeOptions.map(time => (
+                    <option key={time} value={time}>{time}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Summary */}
+            {selectedDate && selectedTime && (
+              <div className="mt-6 p-4 bg-bone/50 rounded-xl">
+                <p className="text-center font-inter text-charcoal">
+                  <span className="font-semibold">{formatDateForDisplay(selectedDate)}</span>
+                  <br />
+                  <span className="text-sage font-medium">at {selectedTime}</span>
+                </p>
               </div>
             )}
 
             <button
-              onClick={handleContinue}
-              className="btn-primary w-full text-lg py-4"
+              onClick={handleContinueToPayment}
+              disabled={!selectedDate || !selectedTime}
+              className="btn-primary w-full text-lg py-4 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Continue to Payment
             </button>
             
             <button
               onClick={() => {
-                setBookingConfirmed(false);
-                setCapturedBooking(null);
+                setStep('calendar');
+                if (!capturedBooking?.autoCapture) {
+                  setSelectedDate('');
+                  setSelectedTime('');
+                }
               }}
-              className="mt-3 text-charcoal/60 hover:text-charcoal font-inter text-sm"
+              className="w-full mt-3 text-charcoal/60 hover:text-charcoal font-inter text-sm"
             >
-              Choose a different time
+              ← Back to calendar
             </button>
           </div>
         </div>
@@ -182,27 +239,33 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
 
           {/* Action buttons */}
           <div className="mt-6 text-center space-y-4">
-            <p className="text-charcoal/60 font-inter text-sm">
-              After selecting a time and confirming in the calendar above, click below:
-            </p>
+            <div className="bg-bone/50 rounded-xl p-4 max-w-md mx-auto">
+              <p className="text-charcoal font-inter text-sm">
+                <strong>After booking on the calendar above:</strong>
+                <br />
+                Click the button below to enter your appointment details
+              </p>
+            </div>
             
             <button
-              onClick={() => setBookingConfirmed(true)}
+              onClick={handleConfirmBooking}
               className="btn-primary px-8 py-3"
             >
-              I've Completed My Booking → Continue to Payment
+              I've Selected My Time on Cal.com →
             </button>
             
-            <a
-              href={calUrl.replace('&embed=true', '')}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sage hover:text-charcoal 
-                         font-inter text-sm transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Having trouble? Open calendar in new tab
-            </a>
+            <div>
+              <a
+                href={calUrl.replace('&embed=true', '')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sage hover:text-charcoal 
+                           font-inter text-sm transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Having trouble? Open calendar in new tab
+              </a>
+            </div>
           </div>
         </>
       )}
