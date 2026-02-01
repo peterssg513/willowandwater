@@ -56,32 +56,36 @@ const AdminLayout = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Initialize demo data immediately on mount
+    initializeDemoData();
+    
     // Check authentication
     const checkAuth = async () => {
       // If Supabase isn't configured, enable demo mode
       if (!isSupabaseConfigured) {
+        console.log('Supabase not configured, using demo mode');
         setDemoMode(true);
         setUser({ email: 'demo@willowandwater.com' });
-        // Initialize demo data for testing
-        initializeDemoData();
         setLoading(false);
         return;
       }
 
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Checking Supabase session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('Session result:', session ? 'Found user' : 'No session', error || '');
+        
         if (session?.user) {
           setUser(session.user);
-          // Always ensure demo data exists as fallback for when tables don't exist
-          initializeDemoData();
+          console.log('User authenticated:', session.user.email);
+        } else {
+          console.log('No active session');
         }
       } catch (error) {
         console.error('Auth check error:', error);
         // Enable demo mode on auth error
         setDemoMode(true);
         setUser({ email: 'demo@willowandwater.com' });
-        // Initialize demo data for testing
-        initializeDemoData();
       }
       setLoading(false);
     };

@@ -1,6 +1,9 @@
 // Demo data for testing the admin portal without Supabase
 // This data is loaded into localStorage when running in demo mode
 
+// Flag to track if demo data has been initialized this session
+let demoDataInitialized = false;
+
 export const DEMO_CLEANERS = [
   {
     id: 'demo-cleaner-1',
@@ -212,16 +215,37 @@ export const DEMO_EXPENSES = [
 ];
 
 // Function to initialize demo data in localStorage
-export const initializeDemoData = () => {
-  // Only initialize if data doesn't exist
-  if (!localStorage.getItem('cleaners') || JSON.parse(localStorage.getItem('cleaners')).length === 0) {
-    localStorage.setItem('cleaners', JSON.stringify(DEMO_CLEANERS));
+export const initializeDemoData = (force = false) => {
+  // Prevent multiple initializations in the same session unless forced
+  if (demoDataInitialized && !force) {
+    return;
   }
-  if (!localStorage.getItem('bookings') || JSON.parse(localStorage.getItem('bookings')).length === 0) {
-    localStorage.setItem('bookings', JSON.stringify(DEMO_BOOKINGS));
-  }
-  if (!localStorage.getItem('expenses') || JSON.parse(localStorage.getItem('expenses')).length === 0) {
-    localStorage.setItem('expenses', JSON.stringify(DEMO_EXPENSES));
+  
+  try {
+    // Check and initialize cleaners
+    const existingCleaners = localStorage.getItem('cleaners');
+    if (!existingCleaners || existingCleaners === '[]' || existingCleaners === 'null') {
+      localStorage.setItem('cleaners', JSON.stringify(DEMO_CLEANERS));
+      console.log('Initialized demo cleaners data');
+    }
+    
+    // Check and initialize bookings
+    const existingBookings = localStorage.getItem('bookings');
+    if (!existingBookings || existingBookings === '[]' || existingBookings === 'null') {
+      localStorage.setItem('bookings', JSON.stringify(DEMO_BOOKINGS));
+      console.log('Initialized demo bookings data');
+    }
+    
+    // Check and initialize expenses
+    const existingExpenses = localStorage.getItem('expenses');
+    if (!existingExpenses || existingExpenses === '[]' || existingExpenses === 'null') {
+      localStorage.setItem('expenses', JSON.stringify(DEMO_EXPENSES));
+      console.log('Initialized demo expenses data');
+    }
+    
+    demoDataInitialized = true;
+  } catch (error) {
+    console.error('Error initializing demo data:', error);
   }
 };
 
@@ -230,4 +254,19 @@ export const resetDemoData = () => {
   localStorage.setItem('cleaners', JSON.stringify(DEMO_CLEANERS));
   localStorage.setItem('bookings', JSON.stringify(DEMO_BOOKINGS));
   localStorage.setItem('expenses', JSON.stringify(DEMO_EXPENSES));
+  demoDataInitialized = true;
 };
+
+// Function to check if we have any data
+export const hasAnyData = () => {
+  try {
+    const cleaners = JSON.parse(localStorage.getItem('cleaners') || '[]');
+    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+    return cleaners.length > 0 || bookings.length > 0;
+  } catch {
+    return false;
+  }
+};
+
+// Auto-initialize on module load to ensure data is always available
+initializeDemoData();

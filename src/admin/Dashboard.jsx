@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { formatPrice } from '../utils/pricingLogic';
+import { initializeDemoData } from './demoData';
 
 // Quick Contact Button
 const QuickContactButton = ({ type, value, name, size = 'sm' }) => {
@@ -183,44 +184,66 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     setLoading(true);
+    
+    // Ensure demo data exists as fallback
+    initializeDemoData();
+    
     try {
       // Try to fetch from Supabase
       let bookingsData = [];
       let cleanersData = [];
+      let supabaseWorked = false;
       
       try {
         const bookingsRes = await supabase.from('bookings').select('*').order('created_at', { ascending: false });
-        if (bookingsRes.data && !bookingsRes.error) {
+        console.log('Bookings response:', bookingsRes);
+        if (bookingsRes.data && !bookingsRes.error && Array.isArray(bookingsRes.data)) {
           bookingsData = bookingsRes.data;
+          if (bookingsData.length > 0) {
+            supabaseWorked = true;
+          }
         }
       } catch (e) {
-        console.log('Bookings table not available, using localStorage');
+        console.log('Bookings table not available:', e.message);
       }
       
       try {
         const cleanersRes = await supabase.from('cleaners').select('*');
-        if (cleanersRes.data && !cleanersRes.error) {
+        console.log('Cleaners response:', cleanersRes);
+        if (cleanersRes.data && !cleanersRes.error && Array.isArray(cleanersRes.data)) {
           cleanersData = cleanersRes.data;
+          if (cleanersData.length > 0) {
+            supabaseWorked = true;
+          }
         }
       } catch (e) {
-        console.log('Cleaners table not available, using localStorage');
+        console.log('Cleaners table not available:', e.message);
       }
       
-      // Fallback to localStorage if no data from Supabase
+      // If Supabase didn't return any data, use localStorage
       if (bookingsData.length === 0) {
-        bookingsData = JSON.parse(localStorage.getItem('bookings') || '[]');
+        console.log('Using localStorage for bookings');
+        const localBookings = localStorage.getItem('bookings');
+        bookingsData = localBookings ? JSON.parse(localBookings) : [];
       }
+      
       if (cleanersData.length === 0) {
-        cleanersData = JSON.parse(localStorage.getItem('cleaners') || '[]');
+        console.log('Using localStorage for cleaners');
+        const localCleaners = localStorage.getItem('cleaners');
+        cleanersData = localCleaners ? JSON.parse(localCleaners) : [];
       }
+      
+      console.log('Final data - Bookings:', bookingsData.length, 'Cleaners:', cleanersData.length);
       
       setBookings(bookingsData);
       setCleaners(cleanersData);
     } catch (error) {
       console.error('Error fetching data:', error);
       // Always fallback to localStorage on any error
-      setBookings(JSON.parse(localStorage.getItem('bookings') || '[]'));
-      setCleaners(JSON.parse(localStorage.getItem('cleaners') || '[]'));
+      const localBookings = localStorage.getItem('bookings');
+      const localCleaners = localStorage.getItem('cleaners');
+      setBookings(localBookings ? JSON.parse(localBookings) : []);
+      setCleaners(localCleaners ? JSON.parse(localCleaners) : []);
     } finally {
       setLoading(false);
     }
