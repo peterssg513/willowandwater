@@ -222,30 +222,51 @@ export const initializeDemoData = (force = false) => {
   }
   
   try {
+    // Helper to check if data is valid
+    const isValidData = (data) => {
+      if (!data) return false;
+      if (data === '[]' || data === 'null' || data === 'undefined') return false;
+      try {
+        const parsed = JSON.parse(data);
+        return Array.isArray(parsed) && parsed.length > 0;
+      } catch {
+        return false;
+      }
+    };
+    
     // Check and initialize cleaners
     const existingCleaners = localStorage.getItem('cleaners');
-    if (!existingCleaners || existingCleaners === '[]' || existingCleaners === 'null') {
+    if (force || !isValidData(existingCleaners)) {
       localStorage.setItem('cleaners', JSON.stringify(DEMO_CLEANERS));
       console.log('Initialized demo cleaners data');
     }
     
     // Check and initialize bookings
     const existingBookings = localStorage.getItem('bookings');
-    if (!existingBookings || existingBookings === '[]' || existingBookings === 'null') {
+    if (force || !isValidData(existingBookings)) {
       localStorage.setItem('bookings', JSON.stringify(DEMO_BOOKINGS));
       console.log('Initialized demo bookings data');
     }
     
     // Check and initialize expenses
     const existingExpenses = localStorage.getItem('expenses');
-    if (!existingExpenses || existingExpenses === '[]' || existingExpenses === 'null') {
+    if (force || !isValidData(existingExpenses)) {
       localStorage.setItem('expenses', JSON.stringify(DEMO_EXPENSES));
       console.log('Initialized demo expenses data');
     }
     
     demoDataInitialized = true;
+    console.log('Demo data initialization complete');
   } catch (error) {
     console.error('Error initializing demo data:', error);
+    // Force set data even on error
+    try {
+      localStorage.setItem('cleaners', JSON.stringify(DEMO_CLEANERS));
+      localStorage.setItem('bookings', JSON.stringify(DEMO_BOOKINGS));
+      localStorage.setItem('expenses', JSON.stringify(DEMO_EXPENSES));
+    } catch (e) {
+      console.error('Failed to force set demo data:', e);
+    }
   }
 };
 
