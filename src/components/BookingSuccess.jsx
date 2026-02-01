@@ -23,31 +23,52 @@ const BookingSuccess = ({ onClose }) => {
       try {
         // Get saved booking data from localStorage
         const savedBooking = localStorage.getItem('willow_booking_data');
+        console.log('BookingSuccess: checking for saved booking data');
+        
         if (savedBooking) {
           const bookingData = JSON.parse(savedBooking);
           const email = bookingData.contact?.email;
+          const scheduledDate = bookingData.schedule?.scheduledDate;
+          
+          console.log('BookingSuccess: found booking for', email);
           
           if (email) {
-            // Update the most recent booking for this customer to confirmed
-            const { error } = await supabase
+            // First, find the booking
+            const { data: existingBookings } = await supabase
               .from('bookings')
-              .update({
-                status: 'confirmed',
-                payment_status: 'deposit_paid',
-              })
+              .select('id, status')
               .eq('email', email.toLowerCase())
               .in('status', ['lead', 'payment_initiated'])
               .order('created_at', { ascending: false })
               .limit(1);
 
-            if (error) {
-              console.error('Error updating booking status:', error);
+            if (existingBookings && existingBookings.length > 0) {
+              const bookingId = existingBookings[0].id;
+              
+              // Update the booking by ID (more reliable than chained update)
+              const { error } = await supabase
+                .from('bookings')
+                .update({
+                  status: 'confirmed',
+                  payment_status: 'deposit_paid',
+                  scheduled_date: scheduledDate || null,
+                })
+                .eq('id', bookingId);
+
+              if (error) {
+                console.error('Error updating booking status:', error);
+              } else {
+                console.log('Booking status updated to confirmed for ID:', bookingId);
+              }
             } else {
-              console.log('Booking status updated to confirmed');
-              // Clear the saved booking data
-              localStorage.removeItem('willow_booking_data');
+              console.log('No pending booking found to update');
             }
+            
+            // Clear the saved booking data
+            localStorage.removeItem('willow_booking_data');
           }
+        } else {
+          console.log('BookingSuccess: no saved booking data found');
         }
       } catch (err) {
         console.error('Error in updateBookingStatus:', err);

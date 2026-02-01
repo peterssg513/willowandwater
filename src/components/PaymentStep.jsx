@@ -97,6 +97,9 @@ const PaymentStep = ({ bookingData, onBack, onComplete }) => {
             .limit(1);
         }
         
+        // Save booking data to localStorage so BookingSuccess can update status
+        localStorage.setItem('willow_booking_data', JSON.stringify(bookingData));
+        
         window.location.href = data.url;
       } else {
         throw new Error('No checkout URL returned');
