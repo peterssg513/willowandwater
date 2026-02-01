@@ -20,10 +20,14 @@ import {
   XCircle,
   Pause,
   Play,
-  Loader2
+  Loader2,
+  X,
+  UserX,
+  CalendarPlus
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import { formatPrice, formatFrequency } from '../utils/pricingLogic';
+import { formatPrice, formatFrequency, calculateCleaningPrice, calculateCleaningDuration } from '../utils/pricingLogic';
+import { formatDateForDB } from '../utils/scheduling';
 
 const CustomerDetail = () => {
   const { id } = useParams();
@@ -36,6 +40,7 @@ const CustomerDetail = () => {
   const [activeTab, setActiveTab] = useState('jobs');
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddJobModal, setShowAddJobModal] = useState(false);
 
   useEffect(() => {
     fetchCustomerData();
@@ -214,35 +219,61 @@ const CustomerDetail = () => {
           {customer.status}
         </span>
         
-        {customer.status === 'active' && (
-          <button
-            onClick={() => updateCustomerStatus('paused')}
-            className="text-sm text-charcoal/60 hover:text-charcoal flex items-center gap-1"
-          >
-            <Pause className="w-4 h-4" />
-            Pause
+        {/* Status change dropdown */}
+        <div className="relative group">
+          <button className="text-sm text-charcoal/60 hover:text-charcoal flex items-center gap-1 px-2 py-1 rounded hover:bg-charcoal/5">
+            Change Status
           </button>
-        )}
+          <div className="absolute left-0 top-full mt-1 bg-white border border-charcoal/10 rounded-lg shadow-lg z-10 hidden group-hover:block min-w-[150px]">
+            {customer.status !== 'active' && (
+              <button
+                onClick={() => updateCustomerStatus('active')}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-sage/10 text-charcoal flex items-center gap-2"
+              >
+                <CheckCircle className="w-4 h-4 text-green-600" />
+                Active
+              </button>
+            )}
+            {customer.status !== 'prospect' && (
+              <button
+                onClick={() => updateCustomerStatus('prospect')}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-sage/10 text-charcoal flex items-center gap-2"
+              >
+                <Clock className="w-4 h-4 text-yellow-600" />
+                Prospect
+              </button>
+            )}
+            {customer.status !== 'paused' && (
+              <button
+                onClick={() => updateCustomerStatus('paused')}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-sage/10 text-charcoal flex items-center gap-2"
+              >
+                <Pause className="w-4 h-4 text-gray-600" />
+                Paused
+              </button>
+            )}
+            {customer.status !== 'churned' && (
+              <button
+                onClick={() => updateCustomerStatus('churned')}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-sage/10 text-charcoal flex items-center gap-2"
+              >
+                <UserX className="w-4 h-4 text-red-600" />
+                Churned
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="border-l border-charcoal/20 h-6 mx-2" />
         
-        {customer.status === 'paused' && (
-          <button
-            onClick={() => updateCustomerStatus('active')}
-            className="text-sm text-sage hover:text-sage/80 flex items-center gap-1"
-          >
-            <Play className="w-4 h-4" />
-            Reactivate
-          </button>
-        )}
-        
-        {customer.status === 'prospect' && (
-          <button
-            onClick={() => updateCustomerStatus('active')}
-            className="text-sm text-sage hover:text-sage/80 flex items-center gap-1"
-          >
-            <CheckCircle className="w-4 h-4" />
-            Convert to Active
-          </button>
-        )}
+        {/* Add Job Button */}
+        <button
+          onClick={() => setShowAddJobModal(true)}
+          className="text-sm text-sage hover:text-sage/80 flex items-center gap-1 px-3 py-1.5 bg-sage/10 rounded-lg hover:bg-sage/20 transition-colors"
+        >
+          <CalendarPlus className="w-4 h-4" />
+          Add Job
+        </button>
       </div>
 
       {/* Info Cards */}
@@ -555,6 +586,32 @@ const CustomerDetail = () => {
           }}
         />
       )}
+
+      {/* Edit Customer Modal */}
+      {showEditModal && (
+        <EditCustomerModal
+          customer={customer}
+          onClose={() => setShowEditModal(false)}
+          onSave={(updatedCustomer) => {
+            setCustomer(updatedCustomer);
+            setShowEditModal(false);
+          }}
+        />
+      )}
+
+      {/* Add Job Modal */}
+      {showAddJobModal && (
+        <AddJobModal
+          customer={customer}
+          onClose={() => setShowAddJobModal(false)}
+          onAdd={(job) => {
+            setJobs(prev => [job, ...prev]);
+            setShowAddJobModal(false);
+            // Refresh data to get cleaner info
+            fetchCustomerData();
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -643,6 +700,663 @@ const AddNoteModal = ({ customerId, onClose, onAdd }) => {
               className="btn-primary flex-1"
             >
               {saving ? 'Saving...' : 'Add Note'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Edit Customer Modal
+const EditCustomerModal = ({ customer, onClose, onSave }) => {
+  const [formData, setFormData] = useState({
+    name: customer.name || '',
+    email: customer.email || '',
+    phone: customer.phone || '',
+    address: customer.address || '',
+    city: customer.city || '',
+    zip: customer.zip || '',
+    sqft: customer.sqft || '',
+    bedrooms: customer.bedrooms || '',
+    bathrooms: customer.bathrooms || '',
+    access_type: customer.access_type || '',
+    access_instructions: customer.access_instructions || '',
+    status: customer.status || 'prospect',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+
+    try {
+      // Validate required fields
+      if (!formData.name || !formData.email || !formData.phone) {
+        throw new Error('Name, email, and phone are required');
+      }
+
+      const updateData = {
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        phone: formData.phone.trim(),
+        address: formData.address.trim() || null,
+        city: formData.city.trim() || null,
+        zip: formData.zip.trim() || null,
+        sqft: formData.sqft ? parseInt(formData.sqft) : null,
+        bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
+        bathrooms: formData.bathrooms ? parseFloat(formData.bathrooms) : null,
+        access_type: formData.access_type || null,
+        access_instructions: formData.access_instructions.trim() || null,
+        status: formData.status,
+      };
+
+      const { data, error: updateError } = await supabase
+        .from('customers')
+        .update(updateData)
+        .eq('id', customer.id)
+        .select(`*, subscriptions (*)`)
+        .single();
+
+      if (updateError) throw updateError;
+
+      // Log activity
+      await supabase.from('activity_log').insert({
+        entity_type: 'customer',
+        entity_id: customer.id,
+        action: 'updated',
+        actor_type: 'admin',
+        details: { updated_fields: Object.keys(updateData) }
+      });
+
+      onSave(data);
+    } catch (err) {
+      console.error('Error updating customer:', err);
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-charcoal/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+        <div className="p-6 border-b border-charcoal/10 flex items-center justify-between">
+          <h2 className="font-playfair text-xl font-semibold text-charcoal">Edit Customer</h2>
+          <button onClick={onClose} className="p-2 hover:bg-charcoal/5 rounded-lg">
+            <X className="w-5 h-5 text-charcoal/50" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal mb-2">Status</label>
+            <select
+              value={formData.status}
+              onChange={(e) => handleChange('status', e.target.value)}
+              className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                         focus:outline-none focus:ring-2 focus:ring-sage"
+            >
+              <option value="prospect">Prospect</option>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="churned">Churned</option>
+            </select>
+          </div>
+
+          {/* Contact Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-charcoal mb-2">Name *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => handleChange('name', e.target.value)}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">Email *</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleChange('email', e.target.value)}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">Phone *</label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => handleChange('phone', e.target.value)}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Address */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">Address</label>
+              <input
+                type="text"
+                value={formData.address}
+                onChange={(e) => handleChange('address', e.target.value)}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+                placeholder="Street address"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-2">City</label>
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={(e) => handleChange('city', e.target.value)}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-2">ZIP Code</label>
+                <input
+                  type="text"
+                  value={formData.zip}
+                  onChange={(e) => handleChange('zip', e.target.value)}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Property Details */}
+          <div>
+            <h4 className="font-inter font-medium text-charcoal mb-3">Property Details</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-2">Square Feet</label>
+                <input
+                  type="number"
+                  value={formData.sqft}
+                  onChange={(e) => handleChange('sqft', e.target.value)}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                  placeholder="2000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-2">Bedrooms</label>
+                <input
+                  type="number"
+                  value={formData.bedrooms}
+                  onChange={(e) => handleChange('bedrooms', e.target.value)}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                  placeholder="3"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-2">Bathrooms</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={formData.bathrooms}
+                  onChange={(e) => handleChange('bathrooms', e.target.value)}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                  placeholder="2"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Access */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">Access Type</label>
+              <select
+                value={formData.access_type}
+                onChange={(e) => handleChange('access_type', e.target.value)}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+              >
+                <option value="">Select access type...</option>
+                <option value="lockbox">Lockbox</option>
+                <option value="garage_code">Garage Code</option>
+                <option value="hidden_key">Hidden Key</option>
+                <option value="customer_home">Customer Will Be Home</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">Access Instructions</label>
+              <textarea
+                value={formData.access_instructions}
+                onChange={(e) => handleChange('access_instructions', e.target.value)}
+                rows={2}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage resize-none"
+                placeholder="Code is 1234, lockbox on left side of door..."
+              />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 border-t border-charcoal/10">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary flex-1">
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Add Job Modal (for phone bookings)
+const AddJobModal = ({ customer, onClose, onAdd }) => {
+  const [formData, setFormData] = useState({
+    scheduled_date: '',
+    scheduled_time: 'morning',
+    job_type: 'first_clean',
+    frequency: 'biweekly',
+    cleaner_id: '',
+    special_instructions: '',
+    // Use customer's property details for pricing
+    sqft: customer.sqft || 2000,
+    bedrooms: customer.bedrooms || 3,
+    bathrooms: customer.bathrooms || 2,
+  });
+  const [cleaners, setCleaners] = useState([]);
+  const [addons, setAddons] = useState([]);
+  const [selectedAddons, setSelectedAddons] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Fetch cleaners and addons
+  useEffect(() => {
+    const fetchData = async () => {
+      const [cleanersRes, addonsRes] = await Promise.all([
+        supabase.from('cleaners').select('*').eq('status', 'active'),
+        supabase.from('addon_services').select('*').eq('is_active', true).order('display_order'),
+      ]);
+      setCleaners(cleanersRes.data || []);
+      setAddons(addonsRes.data || []);
+    };
+    fetchData();
+  }, []);
+
+  // Calculate pricing
+  const pricing = calculateCleaningPrice({
+    sqft: formData.sqft,
+    bedrooms: formData.bedrooms,
+    bathrooms: formData.bathrooms,
+    frequency: formData.frequency,
+    addons: selectedAddons,
+  });
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const toggleAddon = (addon) => {
+    setSelectedAddons(prev => {
+      const exists = prev.find(a => a.id === addon.id);
+      if (exists) {
+        return prev.filter(a => a.id !== addon.id);
+      }
+      return [...prev, addon];
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+
+    try {
+      if (!formData.scheduled_date) {
+        throw new Error('Please select a date');
+      }
+
+      const isFirstClean = formData.job_type === 'first_clean';
+      const jobPrice = isFirstClean ? pricing.firstCleanTotal : pricing.recurringPrice + pricing.addonsPrice;
+      const duration = calculateCleaningDuration({
+        sqft: formData.sqft,
+        bedrooms: formData.bedrooms,
+        bathrooms: formData.bathrooms,
+        isFirstClean,
+        addons: selectedAddons,
+      });
+
+      // Create the job
+      const jobData = {
+        customer_id: customer.id,
+        cleaner_id: formData.cleaner_id || null,
+        scheduled_date: formData.scheduled_date,
+        scheduled_time: formData.scheduled_time,
+        duration_minutes: duration,
+        job_type: formData.job_type,
+        base_price: isFirstClean ? pricing.firstCleanPrice : pricing.recurringPrice,
+        addons_price: pricing.addonsPrice,
+        total_price: jobPrice,
+        final_price: jobPrice,
+        status: 'scheduled',
+        payment_status: 'pending',
+        special_instructions: formData.special_instructions.trim() || null,
+      };
+
+      const { data: job, error: jobError } = await supabase
+        .from('jobs')
+        .insert(jobData)
+        .select('*, cleaners(name)')
+        .single();
+
+      if (jobError) throw jobError;
+
+      // Create job addons
+      if (selectedAddons.length > 0) {
+        const addonInserts = selectedAddons.map(addon => ({
+          job_id: job.id,
+          addon_service_id: addon.id,
+          name: addon.name,
+          price: addon.price,
+        }));
+        await supabase.from('job_addons').insert(addonInserts);
+      }
+
+      // Create subscription if this is a first clean with recurring
+      if (formData.job_type === 'first_clean' && formData.frequency !== 'onetime') {
+        const { data: subscription } = await supabase
+          .from('subscriptions')
+          .insert({
+            customer_id: customer.id,
+            frequency: formData.frequency,
+            preferred_time: formData.scheduled_time,
+            base_price: pricing.recurringPrice,
+            status: 'pending',
+          })
+          .select()
+          .single();
+
+        if (subscription) {
+          await supabase
+            .from('jobs')
+            .update({ subscription_id: subscription.id })
+            .eq('id', job.id);
+        }
+      }
+
+      // Update customer status to active if prospect
+      if (customer.status === 'prospect') {
+        await supabase
+          .from('customers')
+          .update({ status: 'active' })
+          .eq('id', customer.id);
+      }
+
+      // Log activity
+      await supabase.from('activity_log').insert({
+        entity_type: 'job',
+        entity_id: job.id,
+        action: 'created_by_admin',
+        actor_type: 'admin',
+        details: { 
+          customer_id: customer.id,
+          job_type: formData.job_type,
+          price: jobPrice,
+        }
+      });
+
+      onAdd(job);
+    } catch (err) {
+      console.error('Error creating job:', err);
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Get min date (tomorrow)
+  const minDate = formatDateForDB(new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-charcoal/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+        <div className="p-6 border-b border-charcoal/10 flex items-center justify-between">
+          <h2 className="font-playfair text-xl font-semibold text-charcoal">
+            Add Job for {customer.name}
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-charcoal/5 rounded-lg">
+            <X className="w-5 h-5 text-charcoal/50" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Job Type & Frequency */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">Job Type</label>
+              <select
+                value={formData.job_type}
+                onChange={(e) => handleChange('job_type', e.target.value)}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+              >
+                <option value="first_clean">First Clean (Deep Clean)</option>
+                <option value="recurring">Recurring Clean</option>
+                <option value="one_time">One-Time Clean</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">Frequency</label>
+              <select
+                value={formData.frequency}
+                onChange={(e) => handleChange('frequency', e.target.value)}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+              >
+                <option value="weekly">Weekly (35% off recurring)</option>
+                <option value="biweekly">Bi-Weekly (20% off recurring)</option>
+                <option value="monthly">Monthly (10% off recurring)</option>
+                <option value="onetime">One-Time</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Date & Time */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">Date *</label>
+              <input
+                type="date"
+                value={formData.scheduled_date}
+                onChange={(e) => handleChange('scheduled_date', e.target.value)}
+                min={minDate}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">Time Slot</label>
+              <select
+                value={formData.scheduled_time}
+                onChange={(e) => handleChange('scheduled_time', e.target.value)}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+              >
+                <option value="morning">Morning (9am - 12pm)</option>
+                <option value="afternoon">Afternoon (1pm - 5pm)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Assign Cleaner */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal mb-2">Assign Cleaner (Optional)</label>
+            <select
+              value={formData.cleaner_id}
+              onChange={(e) => handleChange('cleaner_id', e.target.value)}
+              className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                         focus:outline-none focus:ring-2 focus:ring-sage"
+            >
+              <option value="">Unassigned</option>
+              {cleaners.map(cleaner => (
+                <option key={cleaner.id} value={cleaner.id}>{cleaner.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Property Override */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal mb-2">Property Size (for pricing)</label>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <input
+                  type="number"
+                  value={formData.sqft}
+                  onChange={(e) => handleChange('sqft', parseInt(e.target.value) || 0)}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                  placeholder="Sq ft"
+                />
+                <p className="text-xs text-charcoal/50 mt-1">Square feet</p>
+              </div>
+              <div>
+                <input
+                  type="number"
+                  value={formData.bedrooms}
+                  onChange={(e) => handleChange('bedrooms', parseInt(e.target.value) || 0)}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                  placeholder="Beds"
+                />
+                <p className="text-xs text-charcoal/50 mt-1">Bedrooms</p>
+              </div>
+              <div>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={formData.bathrooms}
+                  onChange={(e) => handleChange('bathrooms', parseFloat(e.target.value) || 0)}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                  placeholder="Baths"
+                />
+                <p className="text-xs text-charcoal/50 mt-1">Bathrooms</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Add-ons */}
+          {addons.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">Add-ons</label>
+              <div className="grid grid-cols-2 gap-2">
+                {addons.map(addon => (
+                  <button
+                    key={addon.id}
+                    type="button"
+                    onClick={() => toggleAddon(addon)}
+                    className={`
+                      p-3 rounded-xl border-2 text-left transition-all
+                      ${selectedAddons.find(a => a.id === addon.id)
+                        ? 'border-sage bg-sage/10'
+                        : 'border-charcoal/10 hover:border-sage/50'
+                      }
+                    `}
+                  >
+                    <p className="font-inter text-sm font-medium text-charcoal">{addon.name}</p>
+                    <p className="text-xs text-sage">{formatPrice(addon.price)}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Special Instructions */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal mb-2">Special Instructions</label>
+            <textarea
+              value={formData.special_instructions}
+              onChange={(e) => handleChange('special_instructions', e.target.value)}
+              rows={2}
+              className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                         focus:outline-none focus:ring-2 focus:ring-sage resize-none"
+              placeholder="Any special notes for this job..."
+            />
+          </div>
+
+          {/* Pricing Summary */}
+          <div className="bg-sage/5 rounded-xl p-4 border border-sage/20">
+            <h4 className="font-inter font-semibold text-charcoal mb-3">Pricing Summary</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-charcoal/60">
+                  {formData.job_type === 'first_clean' ? 'First Clean' : 'Clean'}
+                </span>
+                <span className="font-medium">
+                  {formatPrice(formData.job_type === 'first_clean' ? pricing.firstCleanPrice : pricing.recurringPrice)}
+                </span>
+              </div>
+              {selectedAddons.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-charcoal/60">Add-ons ({selectedAddons.length})</span>
+                  <span className="font-medium">{formatPrice(pricing.addonsPrice)}</span>
+                </div>
+              )}
+              <div className="flex justify-between pt-2 border-t border-sage/20">
+                <span className="font-medium text-charcoal">Total</span>
+                <span className="font-semibold text-sage">
+                  {formatPrice(formData.job_type === 'first_clean' 
+                    ? pricing.firstCleanTotal 
+                    : pricing.recurringPrice + pricing.addonsPrice)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 border-t border-charcoal/10">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary flex-1">
+              {saving ? 'Creating...' : 'Create Job'}
             </button>
           </div>
         </form>
