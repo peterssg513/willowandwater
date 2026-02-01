@@ -31,64 +31,98 @@ const BookingSuccess = ({ onClose }) => {
           const scheduledDate = bookingData.schedule?.scheduledDate;
           const scheduledTime = bookingData.schedule?.scheduledTime;
           
-          console.log('BookingSuccess: found booking for', email, 'date:', scheduledDate, 'time:', scheduledTime);
+          console.log('BookingSuccess: found booking for', email);
+          console.log('BookingSuccess: date:', scheduledDate, 'time:', scheduledTime);
           
           if (email) {
             // First, find the booking
             const { data: existingBookings, error: fetchError } = await supabase
               .from('bookings')
-              .select('id, status')
+              .select('id, status, scheduled_date, scheduled_time')
               .eq('email', email.toLowerCase())
               .in('status', ['lead', 'payment_initiated'])
               .order('created_at', { ascending: false })
               .limit(1);
 
             if (fetchError) {
-              console.error('Error fetching booking:', fetchError);
+              console.error('BookingSuccess: Error fetching booking:', fetchError);
             } else if (existingBookings && existingBookings.length > 0) {
               const bookingId = existingBookings[0].id;
+              console.log('BookingSuccess: Found booking to update:', bookingId);
               
-              // Build update object - only include fields that exist
-              const updateData = {
-                status: 'confirmed',
-                scheduled_date: scheduledDate || null,
-                scheduled_time: scheduledTime || null,
-              };
+              // Try multiple update approaches
+              let success = false;
               
-              // Try to update with payment_status, fall back without if it fails
-              let updateError;
-              const { error: err1 } = await supabase
-                .from('bookings')
-                .update({ ...updateData, payment_status: 'deposit_paid' })
-                .eq('id', bookingId);
+              // Approach 1: Full update with all fields
+              if (!success) {
+                const { error: err1 } = await supabase
+                  .from('bookings')
+                  .update({
+                    status: 'confirmed',
+                    scheduled_date: scheduledDate || null,
+                    scheduled_time: scheduledTime || null,
+                    payment_status: 'deposit_paid',
+                    customer_type: 'first_time',
+                  })
+                  .eq('id', bookingId);
+                
+                if (!err1) {
+                  success = true;
+                  console.log('BookingSuccess: Full update successful');
+                } else {
+                  console.log('BookingSuccess: Full update failed:', err1.message);
+                }
+              }
               
-              if (err1) {
-                // payment_status column might not exist, try without it
-                console.log('Trying update without payment_status:', err1.message);
+              // Approach 2: Update without optional columns
+              if (!success) {
                 const { error: err2 } = await supabase
                   .from('bookings')
-                  .update(updateData)
+                  .update({
+                    status: 'confirmed',
+                    scheduled_date: scheduledDate || null,
+                    scheduled_time: scheduledTime || null,
+                  })
                   .eq('id', bookingId);
-                updateError = err2;
+                
+                if (!err2) {
+                  success = true;
+                  console.log('BookingSuccess: Basic update successful');
+                } else {
+                  console.log('BookingSuccess: Basic update failed:', err2.message);
+                }
+              }
+              
+              // Approach 3: Just update status
+              if (!success) {
+                const { error: err3 } = await supabase
+                  .from('bookings')
+                  .update({ status: 'confirmed' })
+                  .eq('id', bookingId);
+                
+                if (!err3) {
+                  success = true;
+                  console.log('BookingSuccess: Status-only update successful');
+                } else {
+                  console.error('BookingSuccess: All update approaches failed:', err3.message);
+                }
               }
 
-              if (updateError) {
-                console.error('Error updating booking status:', updateError);
-              } else {
-                console.log('Booking status updated to confirmed for ID:', bookingId);
+              if (success) {
+                console.log('BookingSuccess: Booking confirmed for ID:', bookingId);
               }
             } else {
-              console.log('No pending booking found to update');
+              console.log('BookingSuccess: No pending booking found to update for email:', email);
             }
             
             // Clear the saved booking data
             localStorage.removeItem('willow_booking_data');
           }
         } else {
-          console.log('BookingSuccess: no saved booking data found');
+          console.log('BookingSuccess: no saved booking data found in localStorage');
         }
       } catch (err) {
-        console.error('Error in updateBookingStatus:', err);
+        console.error('BookingSuccess: Error in updateBookingStatus:', err);
       }
     };
 

@@ -180,11 +180,19 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
             />
           </div>
 
-          {/* Helper text */}
-          <div className="mt-6 text-center">
-            <p className="text-charcoal/60 font-inter text-sm mb-3">
-              Select a date and time above, then complete the booking.
+          {/* Action buttons */}
+          <div className="mt-6 text-center space-y-4">
+            <p className="text-charcoal/60 font-inter text-sm">
+              After selecting a time and confirming in the calendar above, click below:
             </p>
+            
+            <button
+              onClick={() => setBookingConfirmed(true)}
+              className="btn-primary px-8 py-3"
+            >
+              I've Completed My Booking → Continue to Payment
+            </button>
+            
             <a
               href={calUrl.replace('&embed=true', '')}
               target="_blank"
@@ -193,7 +201,7 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
                          font-inter text-sm transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
-              Having trouble? Open in new tab
+              Having trouble? Open calendar in new tab
             </a>
           </div>
         </>

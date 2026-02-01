@@ -49,7 +49,8 @@ const Leads = () => {
 
   const convertToBooking = async (leadId) => {
     try {
-      const { data, error } = await supabase
+      // First try with customer_type
+      let result = await supabase
         .from('bookings')
         .update({ 
           status: 'confirmed',
@@ -58,13 +59,40 @@ const Leads = () => {
         .eq('id', leadId)
         .select();
 
-      if (error) {
-        console.error('Supabase error:', error);
-        alert(`Failed to convert lead: ${error.message}`);
+      // If that fails (customer_type column might not exist), try without it
+      if (result.error && result.error.message.includes('customer_type')) {
+        console.log('Retrying without customer_type field');
+        result = await supabase
+          .from('bookings')
+          .update({ status: 'confirmed' })
+          .eq('id', leadId)
+          .select();
+      }
+
+      // If still failing due to updated_at trigger, try a simpler update
+      if (result.error && result.error.message.includes('updated_at')) {
+        console.log('Trigger error, trying direct status update');
+        result = await supabase.rpc('update_booking_status', {
+          booking_id: leadId,
+          new_status: 'confirmed'
+        });
+        
+        // If RPC doesn't exist, just do basic update
+        if (result.error) {
+          result = await supabase
+            .from('bookings')
+            .update({ status: 'confirmed' })
+            .eq('id', leadId);
+        }
+      }
+
+      if (result.error) {
+        console.error('Supabase error:', result.error);
+        alert(`Failed to convert lead: ${result.error.message}\n\nPlease run the migration in supabase/migrations/009_fix_bookings_table.sql`);
         return;
       }
 
-      console.log('Lead converted successfully:', data);
+      console.log('Lead converted successfully:', result.data);
       setLeads(prev => prev.filter(l => l.id !== leadId));
       setSelectedLead(null);
       alert('Lead converted to booking successfully!');

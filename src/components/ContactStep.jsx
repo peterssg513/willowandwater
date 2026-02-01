@@ -195,15 +195,23 @@ const ContactStep = ({ bookingData, onComplete, onClose }) => {
       service_area: serviceArea,
       status: 'lead',
       source: 'website_calculator',
-      created_at: new Date().toISOString(),
+      customer_type: 'first_time',
     };
 
-    try {
-      const { error: insertError } = await supabase
-        .from('bookings')
-        .insert([leadData]);
+    console.log('Creating lead in Supabase:', leadData);
 
-      if (insertError) throw insertError;
+    try {
+      const { data: insertedData, error: insertError } = await supabase
+        .from('bookings')
+        .insert([leadData])
+        .select();
+
+      if (insertError) {
+        console.error('Supabase insert error:', insertError);
+        throw insertError;
+      }
+
+      console.log('Lead created successfully:', insertedData);
 
       // Pass contact data to next step
       onComplete({
