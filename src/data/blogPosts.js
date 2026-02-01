@@ -1507,7 +1507,7 @@ If you're moving within the Fox Valley area:
     image: '/blog/winter-cleaning.jpg',
     metaDescription: 'Winter cleaning tips for Fox Valley IL homes. How to handle salt residue, mud, and slush in St. Charles, Geneva, Batavia. Keep your home clean all winter.',
     keywords: ['winter cleaning tips', 'Fox Valley winter', 'salt residue cleaning', 'Illinois winter cleaning', 'mud season cleaning'],
-    content: \`
+    content: `
 # House Cleaning Tips for Fox Valley Winters: Battling Salt, Mud & More
 
 Anyone who's lived through an Illinois winter knows the challenge: beautiful snow one day, followed by salt-covered streets, muddy slush, and wet boots tracking through your home. For families in St. Charles, Geneva, Batavia, and throughout the Fox Valley, winter cleaning requires special strategies.
@@ -1661,7 +1661,7 @@ The Fox Valley area offers great resources:
 ---
 
 *Tired of the constant battle against winter grime? [Book a cleaning](/pricing) and let us help you maintain a clean, healthy home all winter long.*
-    \`,
+    `,
   },
 
   {
@@ -1676,7 +1676,7 @@ The Fox Valley area offers great resources:
     image: '/blog/choosing-cleaner.jpg',
     metaDescription: 'Guide to choosing a house cleaning service in Kane County IL. What to look for in St. Charles, Geneva, Batavia, Aurora cleaning companies. Local hiring tips.',
     keywords: ['house cleaning service Kane County', 'cleaning service St Charles IL', 'maid service Geneva IL', 'how to choose cleaning company', 'hire house cleaner Illinois'],
-    content: \`
+    content: `
 # How to Choose a House Cleaning Service in Kane County: A Local Guide
 
 Whether you live in downtown St. Charles, the suburbs of Aurora, or a rural property in Campton Hills, finding the right cleaning service matters. Here's a comprehensive guide for Kane County residents.
@@ -1853,7 +1853,7 @@ We're proud to serve families throughout Kane County with:
 ---
 
 *Ready to experience the difference? [Get an instant quote](/pricing) for your Kane County home today.*
-    \`,
+    `,
   },
 
   {
@@ -1868,7 +1868,7 @@ We're proud to serve families throughout Kane County with:
     image: '/blog/historic-home.jpg',
     metaDescription: 'Tips for cleaning historic homes in Geneva IL. How to care for vintage hardwood, original fixtures, and period details. Preserve your home\'s character.',
     keywords: ['cleaning historic homes', 'Geneva IL historic homes', 'vintage hardwood care', 'antique fixture cleaning', 'old house cleaning tips'],
-    content: \`
+    content: `
 # Cleaning Historic Geneva Homes: Preserving Character While Staying Clean
 
 Geneva, Illinois is known for its beautiful historic homes, many dating back to the mid-1800s. From stunning Victorians along Third Street to Craftsman bungalows near Island Park, these homes require special cleaning care to preserve their character while maintaining a healthy living environment.
@@ -2055,7 +2055,7 @@ For regular cleaning, choose a service that understands historic homes and uses 
 ---
 
 *Own a historic Geneva home? [Get a quote](/pricing) for cleaning that respects your home's heritage while keeping it spotlessly clean.*
-    \`,
+    `,
   },
 
   {
@@ -2070,7 +2070,7 @@ For regular cleaning, choose a service that understands historic homes and uses 
     image: '/blog/family-friendly.jpg',
     metaDescription: 'Child-safe cleaning tips for Fox Valley families. Non-toxic cleaning methods for homes with kids in St. Charles, Geneva, Batavia IL. Keep kids healthy.',
     keywords: ['child safe cleaning', 'family friendly cleaning', 'non-toxic cleaning for kids', 'safe cleaning products children', 'Fox Valley families'],
-    content: \`
+    content: `
 # Family-Friendly Cleaning: Keeping Fox Valley Homes Safe for Kids
 
 With excellent schools in St. Charles District 303, Geneva District 304, and Batavia District 101, the Fox Valley area attracts many young families. If you have children, you've probably thought about the products you use to clean the surfaces they touch, crawl on, and yes—occasionally lick.
@@ -2245,7 +2245,7 @@ Many Fox Valley parents tell us they hired a cleaning service specifically so th
 ---
 
 *Want a home that's clean AND safe for your children? [Get an instant quote](/pricing) for non-toxic cleaning your family can trust.*
-    \`,
+    `,
   },
 
   {
@@ -2260,7 +2260,7 @@ Many Fox Valley parents tell us they hired a cleaning service specifically so th
     image: '/blog/batavia-calendar.jpg',
     metaDescription: 'Seasonal home maintenance calendar for Batavia IL homeowners. Month-by-month cleaning and maintenance guide for Fox Valley homes.',
     keywords: ['Batavia IL home maintenance', 'seasonal cleaning calendar', 'home maintenance schedule Illinois', 'Fox Valley homeowner tips'],
-    content: \`
+    content: `
 # The Batavia Homeowner's Seasonal Maintenance & Cleaning Calendar
 
 Living in Batavia means experiencing all four seasons in their fullest form—beautiful falls along the Fox River, snowy winters, muddy springs, and humid summers. Each season brings specific home maintenance and cleaning needs. Here's your month-by-month guide.
@@ -2496,7 +2496,7 @@ Many Batavia clients add extra cleanings before holidays or special events.
 ---
 
 *Want to check cleaning off your maintenance calendar? [Get an instant quote](/pricing) for professional cleaning that fits your schedule.*
-    \`,
+    `,
   },
 
   {
@@ -2511,7 +2511,7 @@ Many Batavia clients add extra cleanings before holidays or special events.
     image: '/blog/declutter.jpg',
     metaDescription: 'Decluttering tips for Fox Valley IL homes. Room-by-room guide plus local donation spots in St. Charles, Geneva, Batavia. Simplify your home.',
     keywords: ['decluttering tips', 'organize home Fox Valley', 'donation locations Kane County', 'home organization St Charles', 'declutter Geneva IL'],
-    content: \`
+    content: `
 # Decluttering Your Fox Valley Home: Room-by-Room Guide
 
 Clutter happens. Between busy careers, active kids, and all the activities the Fox Valley offers, stuff accumulates. Here's your guide to taking back your space—plus local resources for donating what you no longer need.
@@ -2747,7 +2747,7 @@ A cleaner home is easier to maintain when it's not cluttered:
 ---
 
 *Ready for a clean AND decluttered home? [Get an instant quote](/pricing) for professional cleaning that helps you maintain your newly organized space.*
-    \`,
+    `,
   },
 
   {
@@ -2762,7 +2762,7 @@ A cleaner home is easier to maintain when it's not cluttered:
     image: '/blog/new-homeowner.jpg',
     metaDescription: 'Guide for new St. Charles IL homeowners. Local cleaning tips, water quality info, seasonal advice for maintaining your Fox Valley home.',
     keywords: ['St Charles IL homeowner', 'new homeowner tips Illinois', 'St Charles home maintenance', 'Fox Valley homeowner guide'],
-    content: \`
+    content: `
 # New to St. Charles? Your Home Cleaning & Maintenance Guide
 
 Welcome to St. Charles! Whether you've moved to a charming downtown Victorian, a Pheasant Run area home, or one of the newer developments, you're now part of a wonderful community. Here's what you need to know about keeping your new home in top shape.
@@ -2944,7 +2944,7 @@ St. Charles is a wonderful place to live. Taking good care of your home will hel
 ---
 
 *New to St. Charles and need help getting your home in shape? [Get an instant quote](/pricing) for professional cleaning that understands local needs.*
-    \`,
+    `,
   },
 
   {
@@ -2959,7 +2959,7 @@ St. Charles is a wonderful place to live. Taking good care of your home will hel
     image: '/blog/aurora-neighborhoods.jpg',
     metaDescription: 'Aurora IL house cleaning guide by neighborhood. Tips for downtown Aurora, Boulder Hill, Fox Valley Mall area, and more. Local cleaning advice.',
     keywords: ['Aurora IL house cleaning', 'Aurora neighborhoods', 'cleaning service Aurora Illinois', 'house cleaning Kane County'],
-    content: \`
+    content: `
 # House Cleaning Guide for Aurora's Diverse Neighborhoods
 
 Aurora—the City of Lights—is Illinois' second-largest city and one of its most diverse. From historic downtown buildings to sprawling new developments, Aurora's housing stock varies widely. Here's your neighborhood-by-neighborhood cleaning guide.
@@ -3146,7 +3146,7 @@ When choosing a cleaning service in Aurora:
 ---
 
 *Need professional cleaning that understands Aurora's diverse neighborhoods? [Get an instant quote](/pricing) for service tailored to your home.*
-    \`,
+    `,
   },
 
   {
@@ -3161,7 +3161,7 @@ When choosing a cleaning service in Aurora:
     image: '/blog/green-habits.jpg',
     metaDescription: 'Sustainable cleaning guide for Fox Valley IL residents. Eco-friendly habits, local environmental resources, green cleaning tips for Kane County.',
     keywords: ['green cleaning Fox Valley', 'sustainable cleaning Illinois', 'eco-friendly home Kane County', 'environmental cleaning tips'],
-    content: \`
+    content: `
 # Building Green Cleaning Habits: A Sustainable Guide for Fox Valley
 
 The Fox Valley has a strong environmental consciousness—from the Fox River conservation efforts to local sustainability initiatives. Here's how to align your cleaning habits with our community's environmental values.
@@ -3403,7 +3403,7 @@ Fox Valley collective action matters:
 ---
 
 *Ready to go green with your cleaning? [Get an instant quote](/pricing) for professional cleaning that aligns with your environmental values.*
-    \`,
+    `,
   },
 
   {
@@ -3418,7 +3418,7 @@ Fox Valley collective action matters:
     image: '/blog/new-construction.jpg',
     metaDescription: 'Cleaning tips for new construction homes in Oswego and Yorkville IL. Post-construction cleaning, maintaining new surfaces, modern home care.',
     keywords: ['Oswego IL home cleaning', 'Yorkville IL house cleaning', 'new construction cleaning', 'new home maintenance'],
-    content: \`
+    content: `
 # Cleaning Newer Homes in Oswego & Yorkville: What New Construction Owners Need to Know
 
 Oswego and Yorkville are among Illinois' fastest-growing communities. If you've recently moved into a new or nearly-new home in these areas, congratulations! Here's what you need to know about cleaning and maintaining your modern home.
@@ -3631,7 +3631,7 @@ New homes particularly benefit from professional cleaning for:
 ---
 
 *Just moved into your new Oswego or Yorkville home? [Get an instant quote](/pricing) for professional cleaning that protects your investment from day one.*
-    \`,
+    `,
   },
 ];
 
