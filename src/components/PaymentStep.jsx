@@ -20,13 +20,20 @@ const PaymentStep = ({ bookingData, onBack, onComplete }) => {
   // Format the scheduled date for display
   const formatScheduledDate = () => {
     if (!schedule?.scheduledDate) return 'Not scheduled';
-    const date = new Date(schedule.scheduledDate);
+    // Handle both ISO date strings and YYYY-MM-DD format
+    const dateStr = schedule.scheduledDate;
+    const date = dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T12:00:00');
     return date.toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
       year: 'numeric',
     });
+  };
+
+  // Format scheduled time for display
+  const formatScheduledTime = () => {
+    return schedule?.scheduledTime || 'Time to be confirmed';
   };
 
   const handlePayDeposit = async () => {
@@ -64,6 +71,7 @@ const PaymentStep = ({ bookingData, onBack, onComplete }) => {
             frequency: quote?.frequency,
             address: contact?.address,
             scheduledDate: schedule?.scheduledDate,
+            scheduledTime: schedule?.scheduledTime,
           },
           successUrl: `${window.location.origin}?booking=success`,
           cancelUrl: `${window.location.origin}?booking=cancelled`,
@@ -139,7 +147,7 @@ const PaymentStep = ({ bookingData, onBack, onComplete }) => {
               <Calendar className="w-5 h-5 text-sage mt-0.5" />
               <div>
                 <p className="font-inter font-medium text-charcoal">{formatScheduledDate()}</p>
-                <p className="text-sm text-charcoal/60">{schedule?.scheduledTime || 'Time confirmed via email'}</p>
+                <p className="text-sm text-charcoal/60">{formatScheduledTime()}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -252,6 +260,10 @@ const PaymentStep = ({ bookingData, onBack, onComplete }) => {
           <div className="flex justify-between text-sm">
             <span className="text-charcoal/60 font-inter">Date</span>
             <span className="font-inter text-charcoal">{formatScheduledDate()}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-charcoal/60 font-inter">Time</span>
+            <span className="font-inter text-charcoal">{formatScheduledTime()}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-charcoal/60 font-inter">Address</span>

@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { ArrowLeft, Calendar, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Calendar, ExternalLink, Clock } from 'lucide-react';
 
 const SchedulingStep = ({ bookingData, onBack, onScheduled }) => {
   const [hasBooked, setHasBooked] = useState(false);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
   const calLink = import.meta.env.VITE_CALCOM_LINK || 'peter-williams-gizpz6/willowandwatercleaning-appointment';
   
   // Build the Cal.com URL with prefilled data
@@ -18,10 +20,16 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
   const calUrl = `https://cal.com/${calLink}?name=${guestName}&email=${guestEmail}&notes=${notes}&theme=light`;
 
   const handleConfirmBooking = () => {
+    // Validate date and time are entered
+    if (!selectedDate || !selectedTime) {
+      alert('Please enter the date and time you selected on Cal.com');
+      return;
+    }
+
     // User confirms they completed the booking on Cal.com
     onScheduled({
-      scheduledDate: new Date().toISOString(),
-      scheduledTime: 'Confirmed via Cal.com',
+      scheduledDate: selectedDate,
+      scheduledTime: selectedTime,
       calBookingId: 'manual-confirmation',
       calBookingUrl: `https://cal.com/${calLink}`,
     });
@@ -57,10 +65,10 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
       </div>
 
       {/* Action Buttons */}
-      <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+      <div className="mt-6">
         {/* If user booked externally, they can confirm */}
         {!hasBooked ? (
-          <>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
               href={calUrl}
               target="_blank"
@@ -77,24 +85,80 @@ Quote: $${bookingData.quote?.recurringPrice}/visit
             >
               I've Selected My Time
             </button>
-          </>
+          </div>
         ) : (
-          <div className="text-center">
-            <p className="text-charcoal/70 font-inter mb-4">
-              Did you complete your booking on Cal.com?
+          <div className="max-w-md mx-auto bg-white rounded-2xl shadow-lg shadow-charcoal/5 p-6">
+            <h3 className="font-inter font-semibold text-charcoal mb-4 text-center">
+              Confirm Your Appointment Details
+            </h3>
+            <p className="text-charcoal/60 text-sm font-inter mb-4 text-center">
+              Please enter the date and time you selected on Cal.com
             </p>
-            <div className="flex gap-3 justify-center">
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-1.5">
+                  <Calendar className="w-4 h-4 inline mr-1" />
+                  Date Selected
+                </label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl
+                             font-inter focus:outline-none focus:ring-2 focus:ring-sage"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-1.5">
+                  <Clock className="w-4 h-4 inline mr-1" />
+                  Time Selected
+                </label>
+                <select
+                  value={selectedTime}
+                  onChange={(e) => setSelectedTime(e.target.value)}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl
+                             font-inter focus:outline-none focus:ring-2 focus:ring-sage"
+                >
+                  <option value="">Select a time</option>
+                  <option value="8:00 AM">8:00 AM</option>
+                  <option value="8:30 AM">8:30 AM</option>
+                  <option value="9:00 AM">9:00 AM</option>
+                  <option value="9:30 AM">9:30 AM</option>
+                  <option value="10:00 AM">10:00 AM</option>
+                  <option value="10:30 AM">10:30 AM</option>
+                  <option value="11:00 AM">11:00 AM</option>
+                  <option value="11:30 AM">11:30 AM</option>
+                  <option value="12:00 PM">12:00 PM</option>
+                  <option value="12:30 PM">12:30 PM</option>
+                  <option value="1:00 PM">1:00 PM</option>
+                  <option value="1:30 PM">1:30 PM</option>
+                  <option value="2:00 PM">2:00 PM</option>
+                  <option value="2:30 PM">2:30 PM</option>
+                  <option value="3:00 PM">3:00 PM</option>
+                  <option value="3:30 PM">3:30 PM</option>
+                  <option value="4:00 PM">4:00 PM</option>
+                  <option value="4:30 PM">4:30 PM</option>
+                  <option value="5:00 PM">5:00 PM</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
               <button
                 onClick={() => setHasBooked(false)}
-                className="btn-secondary px-6 py-2"
+                className="btn-secondary flex-1"
               >
-                Not Yet
+                Back
               </button>
               <button
                 onClick={handleConfirmBooking}
-                className="btn-primary px-6 py-2"
+                disabled={!selectedDate || !selectedTime}
+                className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Yes, Continue to Payment
+                Continue to Payment
               </button>
             </div>
           </div>

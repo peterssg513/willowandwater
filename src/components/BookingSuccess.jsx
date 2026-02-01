@@ -29,12 +29,13 @@ const BookingSuccess = ({ onClose }) => {
           const bookingData = JSON.parse(savedBooking);
           const email = bookingData.contact?.email;
           const scheduledDate = bookingData.schedule?.scheduledDate;
+          const scheduledTime = bookingData.schedule?.scheduledTime;
           
-          console.log('BookingSuccess: found booking for', email);
+          console.log('BookingSuccess: found booking for', email, 'date:', scheduledDate, 'time:', scheduledTime);
           
           if (email) {
             // First, find the booking
-            const { data: existingBookings } = await supabase
+            const { data: existingBookings, error: fetchError } = await supabase
               .from('bookings')
               .select('id, status')
               .eq('email', email.toLowerCase())
@@ -42,21 +43,37 @@ const BookingSuccess = ({ onClose }) => {
               .order('created_at', { ascending: false })
               .limit(1);
 
-            if (existingBookings && existingBookings.length > 0) {
+            if (fetchError) {
+              console.error('Error fetching booking:', fetchError);
+            } else if (existingBookings && existingBookings.length > 0) {
               const bookingId = existingBookings[0].id;
               
-              // Update the booking by ID (more reliable than chained update)
-              const { error } = await supabase
+              // Build update object - only include fields that exist
+              const updateData = {
+                status: 'confirmed',
+                scheduled_date: scheduledDate || null,
+                scheduled_time: scheduledTime || null,
+              };
+              
+              // Try to update with payment_status, fall back without if it fails
+              let updateError;
+              const { error: err1 } = await supabase
                 .from('bookings')
-                .update({
-                  status: 'confirmed',
-                  payment_status: 'deposit_paid',
-                  scheduled_date: scheduledDate || null,
-                })
+                .update({ ...updateData, payment_status: 'deposit_paid' })
                 .eq('id', bookingId);
+              
+              if (err1) {
+                // payment_status column might not exist, try without it
+                console.log('Trying update without payment_status:', err1.message);
+                const { error: err2 } = await supabase
+                  .from('bookings')
+                  .update(updateData)
+                  .eq('id', bookingId);
+                updateError = err2;
+              }
 
-              if (error) {
-                console.error('Error updating booking status:', error);
+              if (updateError) {
+                console.error('Error updating booking status:', updateError);
               } else {
                 console.log('Booking status updated to confirmed for ID:', bookingId);
               }
