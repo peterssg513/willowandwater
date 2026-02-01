@@ -1,23 +1,24 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Loader2, CreditCard, Shield, AlertTriangle, Heart } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft, Loader2, CreditCard, Shield, AlertTriangle, Heart, RefreshCw } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { supabase } from '../../lib/supabaseClient';
 import { formatPrice, formatFrequency, formatTimeSlot, DEPOSIT_PERCENTAGE } from '../../utils/pricingLogic';
 import { formatDate } from '../../utils/scheduling';
 
-// Initialize Stripe
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+// Initialize Stripe - check for key first
+const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
 /**
  * PaymentStep - Deposit payment + save card
  */
 const PaymentStep = ({ data, onBack, onComplete }) => {
   const [clientSecret, setClientSecret] = useState(null);
-  const [setupIntentSecret, setSetupIntentSecret] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tipAmount, setTipAmount] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Calculate amounts
   const pricing = data.pricing;
@@ -27,62 +28,131 @@ const PaymentStep = ({ data, onBack, onComplete }) => {
   const depositAmount = Math.round(totalAfterDiscount * DEPOSIT_PERCENTAGE);
   const remainingAmount = totalAfterDiscount - depositAmount;
 
-  // Create payment intent on mount
+  // Check for Stripe configuration
   useEffect(() => {
-    const createPaymentIntent = async () => {
-      setLoading(true);
-      setError(null);
+    if (!stripePublishableKey) {
+      setError('Payment system is not configured. Please contact support.');
+      setLoading(false);
+    }
+  }, []);
 
-      try {
-        // Call our edge function to create payment intent
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-booking-payment`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            customerId: data.customerId,
-            amount: depositAmount + tipAmount,
-            tipAmount,
-            metadata: {
-              customer_id: data.customerId,
-              job_type: 'first_clean',
-              payment_type: 'deposit',
-            }
-          }),
-        });
+  // Create payment intent
+  const createPaymentIntent = useCallback(async () => {
+    if (!stripePublishableKey) return;
+    
+    setLoading(true);
+    setError(null);
 
-        if (!response.ok) {
-          throw new Error('Failed to create payment intent');
-        }
-
-        const { clientSecret: secret, stripeCustomerId } = await response.json();
-        setClientSecret(secret);
-        
-        // Update customer with Stripe ID if needed
-        if (stripeCustomerId && !data.customer?.stripe_customer_id) {
-          await supabase
-            .from('customers')
-            .update({ stripe_customer_id: stripeCustomerId })
-            .eq('id', data.customerId);
-        }
-      } catch (err) {
-        console.error('Payment setup error:', err);
-        setError('Failed to set up payment. Please try again.');
-      } finally {
-        setLoading(false);
+    try {
+      // Validate required data
+      if (!data.customerId) {
+        throw new Error('Customer information is missing. Please go back and try again.');
       }
-    };
+      
+      if (depositAmount <= 0) {
+        throw new Error('Invalid deposit amount. Please go back and try again.');
+      }
 
-    if (data.customerId && depositAmount > 0) {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Server configuration error. Please contact support.');
+      }
+
+      // Call our edge function to create payment intent
+      const response = await fetch(`${supabaseUrl}/functions/v1/create-booking-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({
+          customerId: data.customerId,
+          amount: depositAmount + tipAmount,
+          tipAmount,
+          metadata: {
+            customer_id: data.customerId,
+            job_type: 'first_clean',
+            payment_type: 'deposit',
+          }
+        }),
+      });
+
+      // Parse response
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = responseData.error || 'Failed to create payment intent';
+        console.error('Payment intent error:', responseData);
+        throw new Error(errorMessage);
+      }
+
+      const { clientSecret: secret, stripeCustomerId } = responseData;
+
+      // Validate clientSecret format
+      if (!secret || typeof secret !== 'string' || !secret.includes('_secret_')) {
+        console.error('Invalid clientSecret received:', secret);
+        throw new Error('Invalid payment configuration received from server.');
+      }
+
+      setClientSecret(secret);
+      
+      // Update customer with Stripe ID if needed
+      if (stripeCustomerId && !data.customer?.stripe_customer_id) {
+        await supabase
+          .from('customers')
+          .update({ stripe_customer_id: stripeCustomerId })
+          .eq('id', data.customerId);
+      }
+    } catch (err) {
+      console.error('Payment setup error:', err);
+      setError(err.message || 'Failed to set up payment. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [data.customerId, data.customer?.stripe_customer_id, depositAmount, tipAmount]);
+
+  // Create payment intent on mount and when tip changes
+  useEffect(() => {
+    if (data.customerId && depositAmount > 0 && stripePublishableKey) {
       createPaymentIntent();
     }
-  }, [data.customerId, depositAmount, tipAmount]);
+  }, [data.customerId, depositAmount, tipAmount, retryCount, createPaymentIntent]);
+
+  // Retry handler
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+  };
 
   // Tip options
   const tipOptions = [0, 5, 10, 20];
 
+  // Configuration error state
+  if (!stripePublishableKey) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+          <AlertTriangle className="w-8 h-8 text-red-500 mx-auto mb-3" />
+          <h4 className="font-inter font-semibold text-red-800 mb-2">Payment Not Available</h4>
+          <p className="text-red-700 font-inter text-sm">
+            The payment system is not configured. Please contact support or try again later.
+          </p>
+        </div>
+        <button
+          onClick={onBack}
+          className="w-full flex items-center justify-center gap-2 px-6 py-3 
+                     border border-charcoal/20 rounded-xl font-inter font-medium 
+                     text-charcoal hover:bg-charcoal/5 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
+  // Loading state
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -92,12 +162,22 @@ const PaymentStep = ({ data, onBack, onComplete }) => {
     );
   }
 
-  if (error) {
+  // Error state with retry
+  if (error && !clientSecret) {
     return (
       <div className="space-y-6">
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <AlertTriangle className="w-8 h-8 text-red-500 mx-auto mb-3" />
-          <p className="text-red-700 font-inter">{error}</p>
+          <h4 className="font-inter font-semibold text-red-800 mb-2">Payment Setup Failed</h4>
+          <p className="text-red-700 font-inter text-sm mb-4">{error}</p>
+          <button
+            onClick={handleRetry}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 
+                       text-red-800 rounded-lg font-inter text-sm transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Try Again
+          </button>
         </div>
         <button
           onClick={onBack}
@@ -217,8 +297,20 @@ const PaymentStep = ({ data, onBack, onComplete }) => {
       </div>
 
       {/* Payment Form */}
-      {clientSecret && (
-        <Elements stripe={stripePromise} options={{ clientSecret }}>
+      {clientSecret && stripePromise && (
+        <Elements 
+          stripe={stripePromise} 
+          options={{ 
+            clientSecret,
+            appearance: {
+              theme: 'stripe',
+              variables: {
+                colorPrimary: '#71797E',
+                fontFamily: 'Inter, system-ui, sans-serif',
+              },
+            },
+          }}
+        >
           <PaymentForm
             data={data}
             depositAmount={depositAmount}
@@ -227,6 +319,7 @@ const PaymentStep = ({ data, onBack, onComplete }) => {
             totalAfterDiscount={totalAfterDiscount}
             onBack={onBack}
             onComplete={onComplete}
+            onRetry={handleRetry}
           />
         </Elements>
       )}
@@ -248,23 +341,56 @@ const PaymentStep = ({ data, onBack, onComplete }) => {
 };
 
 // Payment Form Component (uses Stripe hooks)
-const PaymentForm = ({ data, depositAmount, tipAmount, remainingAmount, totalAfterDiscount, onBack, onComplete }) => {
+const PaymentForm = ({ data, depositAmount, tipAmount, remainingAmount, totalAfterDiscount, onBack, onComplete, onRetry }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [agreedToPolicy, setAgreedToPolicy] = useState(false);
   const [paymentElementReady, setPaymentElementReady] = useState(false);
+  const [paymentElementError, setPaymentElementError] = useState(null);
+
+  // Handle PaymentElement load error
+  const handleLoadError = (event) => {
+    console.error('PaymentElement load error:', event);
+    setPaymentElementError('Unable to load payment form. Please check your connection and try again.');
+  };
+
+  // Handle PaymentElement ready
+  const handleReady = () => {
+    setPaymentElementReady(true);
+    setPaymentElementError(null);
+  };
+
+  // Handle PaymentElement change (validation errors)
+  const handleChange = (event) => {
+    if (event.error) {
+      setError(event.error.message);
+    } else {
+      setError(null);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!stripe || !elements || !agreedToPolicy || !paymentElementReady) return;
+    if (!stripe || !elements || !agreedToPolicy || !paymentElementReady) {
+      if (!paymentElementReady) {
+        setError('Payment form is still loading. Please wait a moment.');
+      }
+      return;
+    }
     
     setIsProcessing(true);
     setError(null);
 
     try {
+      // Validate the payment element before submission
+      const { error: submitError } = await elements.submit();
+      if (submitError) {
+        throw new Error(submitError.message);
+      }
+
       // Confirm the payment
       const { error: paymentError, paymentIntent } = await stripe.confirmPayment({
         elements,
@@ -275,134 +401,30 @@ const PaymentForm = ({ data, depositAmount, tipAmount, remainingAmount, totalAft
       });
 
       if (paymentError) {
-        throw new Error(paymentError.message);
+        // Map common error codes to user-friendly messages
+        const errorMessages = {
+          'card_declined': 'Your card was declined. Please try a different card.',
+          'expired_card': 'Your card has expired. Please use a different card.',
+          'incorrect_cvc': 'The security code is incorrect. Please check and try again.',
+          'processing_error': 'An error occurred while processing your card. Please try again.',
+          'incorrect_number': 'The card number is incorrect. Please check and try again.',
+          'invalid_expiry_month': 'The expiration month is invalid.',
+          'invalid_expiry_year': 'The expiration year is invalid.',
+          'insufficient_funds': 'Insufficient funds. Please try a different card.',
+        };
+        
+        const friendlyMessage = errorMessages[paymentError.code] || paymentError.message;
+        throw new Error(friendlyMessage);
       }
 
-      if (paymentIntent.status === 'succeeded') {
+      if (paymentIntent && paymentIntent.status === 'succeeded') {
         // Create the job and subscription in database
-        const jobData = {
-          customer_id: data.customerId,
-          scheduled_date: data.selectedDate.toISOString().split('T')[0],
-          scheduled_time: data.selectedTime,
-          duration_minutes: data.pricing.firstCleanDuration,
-          job_type: 'first_clean',
-          base_price: data.pricing.firstCleanPrice,
-          addons_price: data.pricing.addonsPrice,
-          total_price: data.pricing.firstCleanTotal,
-          discount_amount: data.referralDiscount || 0,
-          final_price: totalAfterDiscount,
-          deposit_amount: depositAmount,
-          deposit_paid_at: new Date().toISOString(),
-          deposit_payment_intent_id: paymentIntent.id,
-          remaining_amount: remainingAmount,
-          tip_amount: tipAmount,
-          status: 'scheduled',
-          payment_status: 'deposit_paid',
-        };
-
-        const { data: job, error: jobError } = await supabase
-          .from('jobs')
-          .insert(jobData)
-          .select()
-          .single();
-
-        if (jobError) throw jobError;
-
-        // Create job addons
-        if (data.addons?.length > 0) {
-          const addonInserts = data.addons.map(addon => ({
-            job_id: job.id,
-            addon_service_id: addon.id,
-            name: addon.name,
-            price: addon.price,
-          }));
-          
-          await supabase.from('job_addons').insert(addonInserts);
-        }
-
-        // Create subscription if recurring
-        let subscriptionId = null;
-        if (data.frequency !== 'onetime') {
-          const { data: subscription, error: subError } = await supabase
-            .from('subscriptions')
-            .insert({
-              customer_id: data.customerId,
-              frequency: data.frequency,
-              preferred_day: data.preferredDay,
-              preferred_time: data.preferredTime,
-              base_price: data.pricing.recurringPrice,
-              status: 'pending', // Will activate after first clean
-            })
-            .select()
-            .single();
-
-          if (!subError && subscription) {
-            subscriptionId = subscription.id;
-            // Link job to subscription
-            await supabase
-              .from('jobs')
-              .update({ subscription_id: subscription.id })
-              .eq('id', job.id);
-          }
-        }
-
-        // Create payment record
-        await supabase.from('payments').insert({
-          customer_id: data.customerId,
-          job_id: job.id,
-          amount: depositAmount + tipAmount,
-          payment_type: 'deposit',
-          stripe_payment_intent_id: paymentIntent.id,
-          status: 'succeeded',
-        });
-
-        // Update customer status to active
-        await supabase
-          .from('customers')
-          .update({ status: 'active' })
-          .eq('id', data.customerId);
-
-        // Handle referral if applicable
-        if (data.referralCode) {
-          // Find referrer
-          const { data: referrer } = await supabase
-            .from('customers')
-            .select('id')
-            .eq('referral_code', data.referralCode)
-            .single();
-
-          if (referrer) {
-            // Create referral record
-            await supabase.from('referrals').insert({
-              referrer_customer_id: referrer.id,
-              referred_customer_id: data.customerId,
-              referral_code_used: data.referralCode,
-              status: 'completed',
-            });
-          }
-        }
-
-        // Log activity
-        await supabase.from('activity_log').insert({
-          entity_type: 'job',
-          entity_id: job.id,
-          action: 'booked',
-          actor_type: 'customer',
-          actor_id: data.customerId,
-          details: {
-            deposit_amount: depositAmount,
-            tip_amount: tipAmount,
-            payment_intent_id: paymentIntent.id,
-          }
-        });
-
-        // Complete the step
-        onComplete({
-          jobId: job.id,
-          subscriptionId,
-          paymentIntentId: paymentIntent.id,
-          depositPaid: true,
-        });
+        await createBookingRecords(paymentIntent);
+      } else if (paymentIntent && paymentIntent.status === 'requires_action') {
+        // 3D Secure or additional action required - Stripe handles this
+        setError('Additional verification required. Please complete the authentication.');
+      } else {
+        throw new Error('Payment was not completed. Please try again.');
       }
     } catch (err) {
       console.error('Payment error:', err);
@@ -411,6 +433,173 @@ const PaymentForm = ({ data, depositAmount, tipAmount, remainingAmount, totalAft
       setIsProcessing(false);
     }
   };
+
+  // Create booking records after successful payment
+  const createBookingRecords = async (paymentIntent) => {
+    try {
+      const jobData = {
+        customer_id: data.customerId,
+        scheduled_date: data.selectedDate.toISOString().split('T')[0],
+        scheduled_time: data.selectedTime,
+        duration_minutes: data.pricing.firstCleanDuration,
+        job_type: 'first_clean',
+        base_price: data.pricing.firstCleanPrice,
+        addons_price: data.pricing.addonsPrice,
+        total_price: data.pricing.firstCleanTotal,
+        discount_amount: data.referralDiscount || 0,
+        final_price: totalAfterDiscount,
+        deposit_amount: depositAmount,
+        deposit_paid_at: new Date().toISOString(),
+        deposit_payment_intent_id: paymentIntent.id,
+        remaining_amount: remainingAmount,
+        tip_amount: tipAmount,
+        status: 'scheduled',
+        payment_status: 'deposit_paid',
+      };
+
+      const { data: job, error: jobError } = await supabase
+        .from('jobs')
+        .insert(jobData)
+        .select()
+        .single();
+
+      if (jobError) {
+        console.error('Job creation error:', jobError);
+        throw new Error('Payment succeeded but booking creation failed. Please contact support with payment ID: ' + paymentIntent.id);
+      }
+
+      // Create job addons
+      if (data.addons?.length > 0) {
+        const addonInserts = data.addons.map(addon => ({
+          job_id: job.id,
+          addon_service_id: addon.id,
+          name: addon.name,
+          price: addon.price,
+        }));
+        
+        const { error: addonsError } = await supabase.from('job_addons').insert(addonInserts);
+        if (addonsError) {
+          console.error('Addons creation error:', addonsError);
+          // Non-critical, continue
+        }
+      }
+
+      // Create subscription if recurring
+      let subscriptionId = null;
+      if (data.frequency !== 'onetime') {
+        const { data: subscription, error: subError } = await supabase
+          .from('subscriptions')
+          .insert({
+            customer_id: data.customerId,
+            frequency: data.frequency,
+            preferred_day: data.preferredDay,
+            preferred_time: data.preferredTime,
+            base_price: data.pricing.recurringPrice,
+            status: 'pending',
+          })
+          .select()
+          .single();
+
+        if (!subError && subscription) {
+          subscriptionId = subscription.id;
+          await supabase
+            .from('jobs')
+            .update({ subscription_id: subscription.id })
+            .eq('id', job.id);
+        }
+      }
+
+      // Create payment record
+      await supabase.from('payments').insert({
+        customer_id: data.customerId,
+        job_id: job.id,
+        amount: depositAmount + tipAmount,
+        payment_type: 'deposit',
+        stripe_payment_intent_id: paymentIntent.id,
+        status: 'succeeded',
+      });
+
+      // Update customer status to active
+      await supabase
+        .from('customers')
+        .update({ status: 'active' })
+        .eq('id', data.customerId);
+
+      // Handle referral if applicable
+      if (data.referralCode) {
+        const { data: referrer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('referral_code', data.referralCode)
+          .single();
+
+        if (referrer) {
+          await supabase.from('referrals').insert({
+            referrer_customer_id: referrer.id,
+            referred_customer_id: data.customerId,
+            referral_code_used: data.referralCode,
+            status: 'completed',
+          });
+        }
+      }
+
+      // Log activity
+      await supabase.from('activity_log').insert({
+        entity_type: 'job',
+        entity_id: job.id,
+        action: 'booked',
+        actor_type: 'customer',
+        actor_id: data.customerId,
+        details: {
+          deposit_amount: depositAmount,
+          tip_amount: tipAmount,
+          payment_intent_id: paymentIntent.id,
+        }
+      });
+
+      // Complete the step
+      onComplete({
+        jobId: job.id,
+        subscriptionId,
+        paymentIntentId: paymentIntent.id,
+        depositPaid: true,
+      });
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  // If payment element failed to load, show retry option
+  if (paymentElementError) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-2xl border border-red-200 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="w-5 h-5 text-red-500" />
+            <h4 className="font-inter font-semibold text-red-800">Payment Form Error</h4>
+          </div>
+          <p className="text-sm text-red-700 mb-4">{paymentElementError}</p>
+          <button
+            onClick={onRetry}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 
+                       text-red-800 rounded-lg font-inter text-sm transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onBack}
+          className="w-full flex items-center justify-center gap-2 px-6 py-3 border border-charcoal/20 rounded-xl
+                     font-inter font-medium text-charcoal hover:bg-charcoal/5 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -421,13 +610,24 @@ const PaymentForm = ({ data, depositAmount, tipAmount, remainingAmount, totalAft
           <h4 className="font-inter font-semibold text-charcoal">Payment Details</h4>
         </div>
         
-        <PaymentElement 
-          options={{
-            layout: 'tabs',
-          }}
-          onReady={() => setPaymentElementReady(true)}
-          onLoadError={() => setError('Failed to load payment form. Please refresh and try again.')}
-        />
+        <div className="min-h-[200px]">
+          <PaymentElement 
+            options={{
+              layout: 'tabs',
+            }}
+            onReady={handleReady}
+            onLoadError={handleLoadError}
+            onChange={handleChange}
+          />
+        </div>
+
+        {/* Loading indicator for payment element */}
+        {!paymentElementReady && !paymentElementError && (
+          <div className="flex items-center justify-center py-4 text-charcoal/50">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            <span className="text-sm">Loading payment form...</span>
+          </div>
+        )}
 
         {/* Security Note */}
         <div className="flex items-center gap-2 mt-4 text-xs text-charcoal/50">
