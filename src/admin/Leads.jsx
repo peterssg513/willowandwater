@@ -12,7 +12,9 @@ import {
   Clock,
   DollarSign,
   ExternalLink,
-  Trash2
+  Trash2,
+  Plus,
+  Loader2
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -21,6 +23,7 @@ const Leads = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLead, setSelectedLead] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     fetchLeads();
@@ -134,10 +137,15 @@ const Leads = () => {
             {leads.length} potential customers waiting to book
           </p>
         </div>
-        <button onClick={fetchLeads} className="btn-secondary flex items-center gap-2 self-start">
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Add Lead
+          </button>
+          <button onClick={fetchLeads} className="btn-secondary flex items-center gap-2">
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -200,12 +208,29 @@ const Leads = () => {
           <div className="p-12 text-center">
             <UserPlus className="w-12 h-12 text-charcoal/20 mx-auto mb-4" />
             <h3 className="font-inter font-medium text-charcoal mb-1">No leads found</h3>
-            <p className="text-charcoal/50 text-sm">
+            <p className="text-charcoal/50 text-sm mb-4">
               {searchQuery ? 'Try adjusting your search' : 'Leads will appear here when customers request quotes'}
             </p>
+            {!searchQuery && (
+              <button onClick={() => setShowAddModal(true)} className="btn-primary">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Lead Manually
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {/* Add Lead Modal */}
+      {showAddModal && (
+        <AddLeadModal
+          onClose={() => setShowAddModal(false)}
+          onAdd={(newLead) => {
+            setLeads(prev => [newLead, ...prev]);
+            setShowAddModal(false);
+          }}
+        />
+      )}
 
       {/* Lead Detail Modal */}
       {selectedLead && (
@@ -305,6 +330,305 @@ const Leads = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Add Lead Modal Component
+const AddLeadModal = ({ onClose, onAdd }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    sqft: '',
+    bedrooms: '',
+    bathrooms: '',
+    frequency: 'onetime',
+    first_clean_price: '',
+    recurring_price: '',
+    notes: '',
+    source: 'manual'
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+
+    // Validate required fields
+    if (!formData.name || !formData.email) {
+      setError('Name and email are required');
+      setSaving(false);
+      return;
+    }
+
+    try {
+      const { data, error: insertError } = await supabase
+        .from('bookings')
+        .insert({
+          name: formData.name,
+          email: formData.email.toLowerCase(),
+          phone: formData.phone || null,
+          address: formData.address || null,
+          sqft: formData.sqft ? parseInt(formData.sqft) : null,
+          bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
+          bathrooms: formData.bathrooms ? parseFloat(formData.bathrooms) : null,
+          frequency: formData.frequency,
+          first_clean_price: formData.first_clean_price ? parseFloat(formData.first_clean_price) : null,
+          recurring_price: formData.recurring_price ? parseFloat(formData.recurring_price) : null,
+          notes: formData.notes || null,
+          source: formData.source,
+          status: 'lead',
+          customer_type: 'first_time'
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      onAdd(data);
+    } catch (err) {
+      console.error('Error adding lead:', err);
+      setError(err.message || 'Failed to add lead');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-charcoal/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-charcoal/10">
+          <h2 className="font-playfair text-xl font-semibold text-charcoal">Add New Lead</h2>
+          <p className="text-sm text-charcoal/50 font-inter mt-1">
+            Manually add a potential customer
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Contact Info Section */}
+          <div className="space-y-4">
+            <h3 className="font-inter font-semibold text-charcoal text-sm flex items-center gap-2">
+              <Mail className="w-4 h-4 text-sage" />
+              Contact Information
+            </h3>
+            
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-1.5">Name *</label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+                placeholder="John Smith"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-1.5">Email *</label>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                  placeholder="john@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-1.5">Phone</label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                  placeholder="(630) 555-1234"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-1.5">Address</label>
+              <input
+                type="text"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+                placeholder="123 Main St, St. Charles, IL 60174"
+              />
+            </div>
+          </div>
+
+          {/* Property Details Section */}
+          <div className="space-y-4 pt-4 border-t border-charcoal/10">
+            <h3 className="font-inter font-semibold text-charcoal text-sm flex items-center gap-2">
+              <Home className="w-4 h-4 text-sage" />
+              Property Details
+            </h3>
+            
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-1.5">Sq Ft</label>
+                <input
+                  type="number"
+                  value={formData.sqft}
+                  onChange={(e) => setFormData({ ...formData, sqft: e.target.value })}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                  placeholder="2000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-1.5">Beds</label>
+                <input
+                  type="number"
+                  value={formData.bedrooms}
+                  onChange={(e) => setFormData({ ...formData, bedrooms: e.target.value })}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                  placeholder="3"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-1.5">Baths</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={formData.bathrooms}
+                  onChange={(e) => setFormData({ ...formData, bathrooms: e.target.value })}
+                  className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                             focus:outline-none focus:ring-2 focus:ring-sage"
+                  placeholder="2.5"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Service & Pricing Section */}
+          <div className="space-y-4 pt-4 border-t border-charcoal/10">
+            <h3 className="font-inter font-semibold text-charcoal text-sm flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-sage" />
+              Service & Pricing
+            </h3>
+            
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-1.5">Frequency</label>
+              <select
+                value={formData.frequency}
+                onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
+                className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                           focus:outline-none focus:ring-2 focus:ring-sage"
+              >
+                <option value="onetime">One-time</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Bi-weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-1.5">First Clean Price</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-charcoal/50">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.first_clean_price}
+                    onChange={(e) => setFormData({ ...formData, first_clean_price: e.target.value })}
+                    className="w-full pl-8 pr-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                               focus:outline-none focus:ring-2 focus:ring-sage"
+                    placeholder="200.00"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-1.5">Recurring Price</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-charcoal/50">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.recurring_price}
+                    onChange={(e) => setFormData({ ...formData, recurring_price: e.target.value })}
+                    className="w-full pl-8 pr-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                               focus:outline-none focus:ring-2 focus:ring-sage"
+                    placeholder="150.00"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes Section */}
+          <div className="pt-4 border-t border-charcoal/10">
+            <label className="block text-sm font-medium text-charcoal mb-1.5">Notes</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              rows={3}
+              className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                         focus:outline-none focus:ring-2 focus:ring-sage resize-none"
+              placeholder="Any special notes about this lead..."
+            />
+          </div>
+
+          {/* Source */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal mb-1.5">Lead Source</label>
+            <select
+              value={formData.source}
+              onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+              className="w-full px-4 py-3 bg-bone border border-charcoal/10 rounded-xl font-inter
+                         focus:outline-none focus:ring-2 focus:ring-sage"
+            >
+              <option value="manual">Manual Entry</option>
+              <option value="phone">Phone Call</option>
+              <option value="referral">Referral</option>
+              <option value="social">Social Media</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 text-red-700 rounded-xl p-4 text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              disabled={saving} 
+              className="btn-primary flex-1 flex items-center justify-center gap-2"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4" />
+                  Add Lead
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
