@@ -89,7 +89,7 @@ const SETTINGS_BY_CATEGORY = {
   labor: [
     { key: 'base_hourly_rate', label: 'Base Hourly Rate', description: 'Pay per hour before taxes ($)', type: 'currency' },
     { key: 'payroll_burden_percent', label: 'Payroll Burden', description: 'IL taxes + workers comp (decimal)', type: 'percent' },
-    { key: 'loaded_hourly_rate', label: 'Loaded Hourly Rate', description: 'Effective cost including burden ($)', type: 'currency' },
+    { key: 'loaded_hourly_rate', label: 'Loaded Hourly Rate', description: 'Auto-calculated: Base × (1 + Burden)', type: 'currency', computed: true },
     { key: 'solo_cleaner_max_sqft', label: 'Solo Cleaner Max Sqft', description: '2 cleaners sent above this size', type: 'number' },
   ],
   supplies: [
@@ -202,6 +202,20 @@ const Pricing = () => {
   };
 
   const getDisplayValue = (key) => {
+    // Auto-calculate loaded hourly rate
+    if (key === 'loaded_hourly_rate') {
+      const baseRate = getVal('base_hourly_rate', 26);
+      const burden = getVal('payroll_burden_percent', 0.154);
+      return (baseRate * (1 + burden)).toFixed(2);
+    }
+    // Auto-calculate overhead total
+    if (key === 'monthly_overhead_total') {
+      return (getVal('monthly_marketing', 250) + 
+              getVal('monthly_admin', 250) + 
+              getVal('monthly_phone', 20) + 
+              getVal('monthly_website', 5) + 
+              getVal('monthly_insurance', 75)).toFixed(2);
+    }
     if (editedValues.hasOwnProperty(key)) {
       return editedValues[key];
     }
@@ -216,17 +230,27 @@ const Pricing = () => {
     setSuccess(null);
 
     try {
+      let updates = { ...editedValues };
+      
+      // Auto-calculate loaded hourly rate if base rate or burden changed
+      const laborKeys = ['base_hourly_rate', 'payroll_burden_percent'];
+      const hasLaborChange = laborKeys.some(k => editedValues.hasOwnProperty(k));
+      
+      if (hasLaborChange) {
+        const baseRate = parseFloat(editedValues.base_hourly_rate ?? settings.base_hourly_rate) || 26;
+        const burden = parseFloat(editedValues.payroll_burden_percent ?? settings.payroll_burden_percent) || 0.154;
+        updates['loaded_hourly_rate'] = parseFloat((baseRate * (1 + burden)).toFixed(2));
+      }
+      
       // Calculate overhead total if any overhead value changed
       const overheadKeys = ['monthly_marketing', 'monthly_admin', 'monthly_phone', 'monthly_website', 'monthly_insurance'];
       const hasOverheadChange = overheadKeys.some(k => editedValues.hasOwnProperty(k));
       
-      let updates = { ...editedValues };
-      
       if (hasOverheadChange) {
-        const getVal = (k) => parseFloat(editedValues[k] ?? settings[k]) || 0;
-        const newOverheadTotal = getVal('monthly_marketing') + getVal('monthly_admin') + 
-                                  getVal('monthly_phone') + getVal('monthly_website') + 
-                                  getVal('monthly_insurance');
+        const getSettingVal = (k) => parseFloat(editedValues[k] ?? settings[k]) || 0;
+        const newOverheadTotal = getSettingVal('monthly_marketing') + getSettingVal('monthly_admin') + 
+                                  getSettingVal('monthly_phone') + getSettingVal('monthly_website') + 
+                                  getSettingVal('monthly_insurance');
         updates['monthly_overhead_total'] = newOverheadTotal;
       }
 
@@ -542,12 +566,13 @@ const Pricing = () => {
                               step={setting.type === 'percent' || setting.type === 'multiplier' ? '0.01' : '1'}
                               value={getDisplayValue(setting.key)}
                               onChange={(e) => handleValueChange(setting.key, e.target.value)}
-                              disabled={setting.readonly}
-                              className={`w-full px-3 py-2 bg-bone border border-charcoal/10 rounded-lg
+                              disabled={setting.readonly || setting.computed}
+                              className={`w-full px-3 py-2 border border-charcoal/10 rounded-lg
                                          font-inter text-sm focus:outline-none focus:ring-2 focus:ring-sage
                                          ${setting.type === 'currency' ? 'pl-7' : ''}
-                                         ${setting.readonly ? 'opacity-60 cursor-not-allowed' : ''}
-                                         ${editedValues.hasOwnProperty(setting.key) ? 'ring-2 ring-yellow-400' : ''}`}
+                                         ${setting.readonly || setting.computed ? 'bg-charcoal/5 text-charcoal/70 cursor-not-allowed' : 'bg-bone'}
+                                         ${setting.computed ? 'font-semibold text-sage' : ''}
+                                         ${editedValues.hasOwnProperty(setting.key) && !setting.computed ? 'ring-2 ring-yellow-400' : ''}`}
                             />
                           </div>
                         </div>
